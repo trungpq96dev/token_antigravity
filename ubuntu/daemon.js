@@ -217,9 +217,10 @@ function parseUsagePaneText(paneText) {
 function parseStatusLineJson(statusObj) {
   if (!statusObj || typeof statusObj !== 'object') return null;
   const quota = statusObj.quota || {};
+  const rawPlan = String(statusObj.plan_tier || '').trim();
   const out = {
     email: statusObj.email || '',
-    plan: statusObj.plan_tier ? `Google AI ${statusObj.plan_tier}` : '',
+    plan: rawPlan ? (/^google\s+ai/i.test(rawPlan) ? rawPlan : `Google AI ${rawPlan}`) : '',
     geminiWeekly: null,
     gemini5h: null,
     claudeWeekly: null,
