@@ -1,25 +1,25 @@
 {
-  "source": "static-snapshot",
+  "source": "demo-snapshot",
   "name": "Local Antigravity IDE",
   "email": "local@antigravity.dev",
   "plan": "Pro Plan",
   "max": 2000000,
-  "used": 2000000,
-  "remaining": 0,
-  "resetDays": 7,
+  "used": 579500,
+  "remaining": 1420500,
+  "resetDays": 6,
   "tasks": {
-    "agent": 1310000,
-    "auto": 500000,
-    "chat": 190000
+    "agent": 380000,
+    "auto": 145000,
+    "chat": 54500
   },
   "trend": [
-    12,
-    16,
-    16,
-    12,
-    92,
-    16,
-    16
+    55,
+    78,
+    46,
+    62,
+    28,
+    52,
+    85
   ],
   "trendLabels": [
     "T4",
@@ -32,101 +32,29 @@
   ],
   "history": [
     {
-      "id": "tx-abdebfea",
-      "title": "Session #abdebfea",
+      "id": "tx-demo-1",
+      "title": "Agent Refactor Session",
       "taskType": "Agent & Reasoning",
-      "delta": -44236,
-      "timestamp": "2026-11-24T02:40:44.165Z",
-      "source": "Local Telemetry"
+      "delta": -142000,
+      "timestamp": "2026-11-24T01:00:00.000Z",
+      "source": "Demo Snapshot"
     },
     {
-      "id": "tx-c44d9365",
-      "title": "Session #c44d9365",
+      "id": "tx-demo-2",
+      "title": "Inline Code Completion",
       "taskType": "Code Autocomplete",
-      "delta": -17219,
-      "timestamp": "2026-11-23T18:47:16.605Z",
-      "source": "Local Telemetry"
+      "delta": -48500,
+      "timestamp": "2026-11-23T18:30:00.000Z",
+      "source": "Demo Snapshot"
     },
     {
-      "id": "tx-6f739a2f",
-      "title": "Session #6f739a2f",
-      "taskType": "Quick Chat",
-      "delta": -166923,
-      "timestamp": "2026-11-23T18:40:07.995Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-1510c005",
-      "title": "Session #1510c005",
-      "taskType": "Agent & Reasoning",
-      "delta": -65042,
-      "timestamp": "2026-11-23T17:20:55.520Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-d87c58dd",
-      "title": "Session #d87c58dd",
-      "taskType": "Code Autocomplete",
-      "delta": -1162,
-      "timestamp": "2026-11-23T16:55:05.054Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-4095ef59",
-      "title": "Session #4095ef59",
-      "taskType": "Quick Chat",
-      "delta": -29066,
-      "timestamp": "2026-11-22T17:55:20.348Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-50c24eff",
-      "title": "Session #50c24eff",
-      "taskType": "Agent & Reasoning",
-      "delta": -656745,
-      "timestamp": "2026-11-22T16:05:49.947Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-09f24de0",
-      "title": "Session #09f24de0",
-      "taskType": "Code Autocomplete",
-      "delta": -6266,
-      "timestamp": "2026-11-22T12:53:57.339Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-afd2704f",
-      "title": "Session #afd2704f",
-      "taskType": "Quick Chat",
-      "delta": -177459,
-      "timestamp": "2026-11-22T12:21:21.910Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-f54f61a3",
-      "title": "Session #f54f61a3",
-      "taskType": "Agent & Reasoning",
-      "delta": -825489,
-      "timestamp": "2026-11-22T11:55:50.941Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-44973f9a",
-      "title": "Session #44973f9a",
-      "taskType": "Code Autocomplete",
-      "delta": -209680,
-      "timestamp": "2026-11-22T08:48:49.360Z",
-      "source": "Local Telemetry"
-    },
-    {
-      "id": "tx-6bcffe5b",
-      "title": "Session #6bcffe5b",
-      "taskType": "Quick Chat",
-      "delta": -170268,
-      "timestamp": "2026-11-22T08:05:29.567Z",
-      "source": "Local Telemetry"
+      "id": "tx-demo-3",
+      "title": "Monthly Quota Allocation",
+      "taskType": "Top-up",
+      "delta": 2000000,
+      "timestamp": "2026-11-01T00:00:00.000Z",
+      "source": "Billing"
     }
   ],
-  "syncedAt": "2026-11-24T02:40:51.991Z"
+  "syncedAt": "2026-11-24T05:50:18.866Z"
 }

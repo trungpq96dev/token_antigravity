@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { collectLocalAntigravityTelemetry } = require('../server');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
@@ -12,6 +11,53 @@ const STATIC_FILES = [
   'vercel.json',
   'netlify.toml',
 ];
+
+function createAnonymizedFallback() {
+  return {
+    source: 'demo-snapshot',
+    name: 'Local Antigravity IDE',
+    email: 'local@antigravity.dev',
+    plan: 'Pro Plan',
+    max: 2000000,
+    used: 579500,
+    remaining: 1420500,
+    resetDays: 6,
+    tasks: {
+      agent: 380000,
+      auto: 145000,
+      chat: 54500,
+    },
+    trend: [55, 78, 46, 62, 28, 52, 85],
+    trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+    history: [
+      {
+        id: 'tx-demo-1',
+        title: 'Agent Refactor Session',
+        taskType: 'Agent & Reasoning',
+        delta: -142000,
+        timestamp: '2026-11-24T01:00:00.000Z',
+        source: 'Demo Snapshot',
+      },
+      {
+        id: 'tx-demo-2',
+        title: 'Inline Code Completion',
+        taskType: 'Code Autocomplete',
+        delta: -48500,
+        timestamp: '2026-11-23T18:30:00.000Z',
+        source: 'Demo Snapshot',
+      },
+      {
+        id: 'tx-demo-3',
+        title: 'Monthly Quota Allocation',
+        taskType: 'Top-up',
+        delta: 2000000,
+        timestamp: '2026-11-01T00:00:00.000Z',
+        source: 'Billing',
+      },
+    ],
+    syncedAt: new Date().toISOString(),
+  };
+}
 
 function build() {
   if (fs.existsSync(DIST_DIR)) {
@@ -32,27 +78,16 @@ function build() {
     builtFiles.push({ file, size });
   }
 
-  // Generate static fallback telemetry snapshot for static hosting
-  const telemetry = collectLocalAntigravityTelemetry();
-  const snapshot = {
-    source: 'static-snapshot',
-    name: telemetry.name,
-    email: 'local@antigravity.dev',
-    plan: telemetry.plan,
-    max: telemetry.max,
-    used: telemetry.used,
-    remaining: telemetry.remaining,
-    resetDays: telemetry.resetDays,
-    tasks: telemetry.tasks,
-    trend: telemetry.trend,
-    trendLabels: telemetry.trendLabels,
-    history: telemetry.history,
-    syncedAt: new Date().toISOString(),
-  };
+  // Write sanitized demo snapshot (never reads personal ~/.gemini/antigravity into public dist/)
+  const snapshotJson = JSON.stringify(createAnonymizedFallback(), null, 2);
+  const distFallbackPath = path.join(DIST_DIR, 'api-fallback.json');
+  fs.writeFileSync(distFallbackPath, snapshotJson, 'utf8');
+  builtFiles.push({ file: 'api-fallback.json', size: fs.statSync(distFallbackPath).size });
 
-  const fallbackPath = path.join(DIST_DIR, 'api-fallback.json');
-  fs.writeFileSync(fallbackPath, JSON.stringify(snapshot, null, 2), 'utf8');
-  builtFiles.push({ file: 'api-fallback.json', size: fs.statSync(fallbackPath).size });
+  // Prevent GitHub Pages Jekyll processing
+  const nojekyllPath = path.join(DIST_DIR, '.nojekyll');
+  fs.writeFileSync(nojekyllPath, '', 'utf8');
+  builtFiles.push({ file: '.nojekyll', size: 0 });
 
   console.log('Build completed -> dist/');
   for (const entry of builtFiles) {

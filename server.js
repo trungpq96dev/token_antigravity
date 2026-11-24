@@ -186,7 +186,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
   return {
     source: 'local-antigravity',
     name: 'Local Antigravity IDE',
-    email: 'phamquangtrung962196@gmail.com',
+    email: process.env.AG_USER_EMAIL || 'local@antigravity.dev',
     plan: 'Pro Plan',
     max: maxTokens,
     used,
