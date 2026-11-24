@@ -1,55 +1,46 @@
-# Antigravity Token Usage Dashboard (Multi-Account)
+# Antigravity Token % Quota Dashboard (Multi-Account + Ubuntu 24/7 Collector)
 
-## Mô tả dự án
-Giao diện Web theo dõi lượng token còn lại của **Antigravity** với phong cách Dark Mode tối giản (đối chiếu chuẩn theo `ui-mockup.png`), hỗ trợ **chuyển đổi nhanh giữa nhiều tài khoản (Switch Account)**, đồng bộ dữ liệu thực tế từ Antigravity IDE local hoặc API bên ngoài, và lưu cấu hình + API key an toàn trên trình duyệt (`localStorage`).
+Giao diện Web theo dõi `%` hạn mức còn lại của **Antigravity** (**Gemini Models** & **Claude/GPT models** — Weekly & Five Hour Limit Remaining), hỗ trợ chuyển đổi nhanh nhiều tài khoản và tự động thu thập `%` thật 24/7 từ máy chủ Ubuntu thông qua **Google Antigravity CLI (`agy`)**.
 
-## Cấu trúc thư mục
-- `index.html`: Giao diện Dashboard hoàn chỉnh (HTML + Tailwind CSS + Vanilla JS), hỗ trợ quản lý đa tài khoản, Top-up, Alert Settings, Transaction History và đồng bộ API.
-- `server.js`: Node.js local server (zero dependencies) phục vụ static files và cung cấp 2 endpoints:
-  - `GET /api/local-antigravity`: Đọc dữ liệu phiên làm việc từ `~/.gemini/antigravity/brain` để ước tính token sử dụng theo tác vụ và biểu đồ 7 ngày gần nhất.
-  - `POST /api/fetch-usage`: Proxy đồng bộ quota cho OpenRouter, Gemini API Key, hoặc Custom Endpoint (không lưu API key xuống ổ đĩa).
-- `scripts/build.js`: Script đóng gói bản static production ra thư mục `dist/`.
-- `vercel.json` & `netlify.toml`: Cấu hình deploy nhanh lên Vercel / Netlify.
-- `.env.example`: Mẫu biến môi trường cho local server (không commit `.env` lên Git).
-- `ui-mockup.png`: Ảnh thiết kế giao diện mẫu.
+- **Web Public:** https://trungpq96dev.github.io/token_antigravity/
 
-## Hướng dẫn chạy & Build
+---
 
-### 1. Chạy local server (kèm đồng bộ Antigravity IDE)
+## Cài đặt 1 chạm trên Ubuntu Server (Cockpit Terminal)
+
+Mở terminal trên Ubuntu (`https://192.168.0.50:9090/system/terminal`) và dán duy nhất dòng lệnh sau:
+
 ```bash
-npm start
-```
-Mở trình duyệt tại `http://localhost:3000`.
-
-### 2. Build bản production tĩnh (`dist/`)
-```bash
-npm run build
-```
-Xem thử bản đã build:
-```bash
-npm run preview
+curl -fsSL https://raw.githubusercontent.com/trungpq96dev/token_antigravity/main/ubuntu/setup-ubuntu.sh | sudo bash
 ```
 
-### 3. Cấu hình tài khoản & API Key an toàn
-- Nhấn vào bộ chuyển tài khoản ở góc trên bên phải → **+ Thêm tài khoản mới** hoặc **⚙ Cấu hình API & hạn mức tài khoản hiện tại**.
-- Chọn nguồn dữ liệu:
-  - **Local Antigravity IDE**: Tự động đọc từ thư mục `~/.gemini/antigravity` khi chạy `npm start`.
-  - **OpenRouter API / Google Gemini API / Custom Endpoint**: Nhập API Key trực tiếp trên giao diện; key chỉ được lưu trong `localStorage` của trình duyệt, không hardcode lên mã nguồn hay Git.
+Sau khi cài xong, chạy 2 lệnh sau (chỉ làm 1 lần):
 
-## Đẩy code lên GitHub & Build tự động trên GitHub Pages
+1. **Đăng nhập tài khoản Google Antigravity trên Ubuntu:**
+   ```bash
+   sudo ag-tracker login acc1
+   ```
+   *(Mở link Google OAuth hiện ra trên màn hình, đăng nhập, dán mã xác thực vào terminal. Nếu có nhiều tài khoản, chạy tiếp `sudo ag-tracker login ten_tai_khoan_2`.)*
+
+2. **Gắn GitHub Personal Access Token để tự động đẩy dữ liệu mã hóa lên nhánh `quota-data`:**
+   ```bash
+   sudo ag-tracker set-token ghp_xxxxxxxxxxxxxxxxxxxx
+   ```
+
+3. **Kiểm tra trạng thái bất cứ lúc nào:**
+   ```bash
+   sudo ag-tracker status
+   sudo ag-tracker logs
+   ```
+
+### Cơ chế đồng bộ thông minh 1 phút/lần (`Smart-Diff`)
+- Dịch vụ `ag-tracker.service` trên Ubuntu kiểm tra lệnh `/usage` của `agy` **mỗi 60 giây** (không gọi LLM nên tốn **0% token**).
+- **Chỉ khi số `%` thực sự thay đổi**, Ubuntu mới mã hóa `AES-256-GCM` vào `cloud-vault.json` và ghi đè 1 commit duy nhất lên nhánh độc lập `quota-data` — giúp cập nhật trong 1 phút mà **không làm phình dung lượng Git** và **không chạm giới hạn build của GitHub Pages**.
+
+---
+
+## Chạy & Build trên máy Local
 ```bash
-git init
-git add .
-git commit -m "feat: antigravity multi-account token dashboard"
-git branch -M main
-git remote add origin https://github.com/trungpq96dev/token_antigravity.git
-git push -u origin main
+npm start      # Chạy local server tại http://localhost:3000
+npm run build  # Đóng gói ra thư mục dist/
 ```
-
-### Tự động build & Public lên GitHub Pages (`trungpq96dev.github.io/token_antigravity/`)
-Repo đã có sẵn GitHub Actions workflow tại `.github/workflows/deploy-pages.yml`:
-1. Mỗi lần `git push` lên nhánh `main`, GitHub Actions tự động chạy `npm run build` để đóng gói bản sạch vào `dist/` (không chứa email cá nhân, đường dẫn local hay API key) và đẩy lên nhánh `gh-pages`.
-2. Trên GitHub vào **Settings → Pages → Source: Deploy from a branch**, chọn nhánh **`gh-pages`** (thư mục `/ (root)`) và bấm **Save**.
-3. Sau khoảng 30 giây, trang web sẽ chạy công khai tại `https://trungpq96dev.github.io/token_antigravity/`.
-
-> Ngoài ra vẫn hỗ trợ deploy trực tiếp thư mục `dist/` lên **Vercel**, **Netlify**, hoặc **Cloudflare Pages**.
