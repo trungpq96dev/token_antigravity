@@ -42,7 +42,7 @@ git init
 git add .
 git commit -m "feat: antigravity multi-account token dashboard"
 git branch -M main
-git remote add origin https://github.com/trungpq96dev/antigravity-tracker.git
+git remote add origin https://github.com/trungpq96dev/token_antigravity.git
 git push -u origin main
 ```
 Sau đó deploy thư mục `dist/` (hoặc kết nối trực tiếp repo GitHub) lên **Vercel**, **Netlify**, hoặc **Cloudflare Pages**.
