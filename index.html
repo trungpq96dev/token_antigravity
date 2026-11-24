@@ -217,6 +217,15 @@
           </div>
 
         </section>
+
+        <!-- Per-Model Quota Pills (shown when IDE/Cloud Vault model telemetry is available) -->
+        <section id="model-quota-section" class="hidden pt-2 border-t border-slate-800/70 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Model Quota Status (Claude / Gemini / GPT)</h2>
+            <span id="model-quota-count" class="text-[11px] text-slate-500"></span>
+          </div>
+          <div id="model-quota-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+        </section>
       </main>
 
       <!-- Footer -->
@@ -507,6 +516,7 @@
 
     function getProviderLabel(provider) {
       const map = {
+        'cloud-vault': 'Cloud Sync',
         local: 'Local IDE Sync',
         openrouter: 'OpenRouter API',
         gemini: 'Gemini API',
@@ -588,6 +598,30 @@
       }).join('');
 
       renderAccountMenu();
+      renderModelQuotas(acc);
+    }
+
+    function renderModelQuotas(acc) {
+      const sec = document.getElementById('model-quota-section');
+      const grid = document.getElementById('model-quota-grid');
+      const countEl = document.getElementById('model-quota-count');
+      const models = Array.isArray(acc.models) ? acc.models : [];
+      if (models.length === 0) {
+        sec.classList.add('hidden');
+        return;
+      }
+      sec.classList.remove('hidden');
+      countEl.textContent = `${models.length} models`;
+      grid.innerHTML = models.map(m => {
+        const pct = Math.max(0, Math.min(100, Number(m.remainingPct) || 0));
+        const colorCls = pct < 20 ? 'text-rose-300' : 'text-cyan-300';
+        return `
+          <div class="px-2.5 py-2 rounded-xl bg-slate-900/80 border border-slate-800/90 flex items-center justify-between gap-2 text-[11px]">
+            <span class="text-slate-300 truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
+            <span class="font-mono font-semibold shrink-0 ${colorCls}">${pct.toFixed(0)}%</span>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderAccountMenu() {
@@ -644,18 +678,89 @@
       return { ok: false, data: null };
     }
 
+    function base64ToBytes(b64) {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
     /**
-     * Fetch live token usage from local server, local bridge, or external provider API.
+     * Decrypt user's Antigravity telemetry from ./cloud-vault.json on mobile/remote browsers using their email.
+     */
+    async function unlockFromCloudVault(passphrase) {
+      const clean = String(passphrase || '').trim().toLowerCase();
+      if (!clean || !window.crypto || !window.crypto.subtle) return null;
+
+      let vaultJson;
+      try {
+        const res = await fetch(`./cloud-vault.json?t=${Date.now()}`);
+        if (!res.ok) return null;
+        vaultJson = await res.json();
+      } catch {
+        return null;
+      }
+
+      const slots = Array.isArray(vaultJson.vaults) ? vaultJson.vaults : [];
+      if (slots.length === 0) return null;
+
+      const enc = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(clean),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      );
+
+      for (const slot of slots) {
+        try {
+          const salt = base64ToBytes(slot.salt);
+          const iv = base64ToBytes(slot.iv);
+          const cipherBytes = base64ToBytes(slot.data);
+          const aesKey = await crypto.subtle.deriveKey(
+            {
+              name: 'PBKDF2',
+              salt,
+              iterations: Number(vaultJson.iterations || 100000),
+              hash: 'SHA-256'
+            },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['decrypt']
+          );
+          const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, cipherBytes);
+          const decoded = new TextDecoder().decode(plainBuf);
+          return JSON.parse(decoded);
+        } catch {
+          // Wrong key for this slot; try next slot
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Fetch live token usage from local server, local bridge, encrypted Cloud Vault, or external provider API.
      */
     async function fetchRealAccountData(acc) {
       const provider = acc.provider || 'manual';
       if (provider === 'manual') return null;
 
-      if (provider === 'local') {
+      if (provider === 'local' || provider === 'cloud-vault') {
         const bridge = await fetchLocalBridge(`/api/local-antigravity?max=${encodeURIComponent(acc.max)}`);
-        if (bridge.ok && bridge.data) return bridge.data;
-        const fallback = await fetch('./api-fallback.json').catch(() => null);
-        if (fallback && fallback.ok) return await fallback.json();
+        if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
+          return bridge.data;
+        }
+        const vaultPass = acc.vaultKey || acc.email;
+        if (vaultPass) {
+          const unlocked = await unlockFromCloudVault(vaultPass);
+          if (unlocked) return unlocked;
+        }
+        if (provider === 'local') {
+          const fallback = await fetch('./api-fallback.json').catch(() => null);
+          if (fallback && fallback.ok) return await fallback.json();
+        }
         return null;
       }
 
@@ -736,7 +841,7 @@
 
     function applyLiveDataToAccount(acc, live) {
       if (!live) return;
-      if (live.source === 'local-antigravity') {
+      if (live.source === 'local-antigravity' || live.source === 'cloud-vault') {
         if (live.name) acc.name = live.name;
         if (live.email && live.email !== 'local@antigravity.dev') acc.email = live.email;
         if (live.plan) acc.plan = live.plan;
@@ -745,6 +850,7 @@
       if (typeof live.remaining === 'number') acc.remaining = Math.max(0, live.remaining);
       if (typeof live.resetDays === 'number') acc.resetDays = live.resetDays;
       if (live.tasks) acc.tasks = live.tasks;
+      if (Array.isArray(live.models)) acc.models = live.models;
       if (Array.isArray(live.trend) && live.trend.length === 7) acc.trend = live.trend;
       if (Array.isArray(live.trendLabels) && live.trendLabels.length === 7) acc.trendLabels = live.trendLabels;
       if (Array.isArray(live.history) && live.history.length > 0) acc.history = live.history;
@@ -966,22 +1072,35 @@
       document.getElementById('add-modal').classList.add('hidden');
     }
 
-    function saveAccountForm(e) {
+    async function saveAccountForm(e) {
       e.preventDefault();
       const editId = document.getElementById('inp-edit-id').value;
       const rawLogin = document.getElementById('inp-login-input').value.trim();
       const forcedProvider = document.getElementById('inp-provider').value;
       const inferred = inferLoginDetails(rawLogin, forcedProvider);
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      // Try unlocking encrypted Cloud Vault (works on phone even when PC is turned off)
+      let vaultData = null;
+      if (forcedProvider === 'auto' || forcedProvider === 'local') {
+        vaultData = await unlockFromCloudVault(rawLogin);
+      }
+
+      if (submitBtn) submitBtn.disabled = false;
+
       const nameInput = document.getElementById('inp-name').value.trim();
-      const name = nameInput || inferred.defaultName;
-      const plan = document.getElementById('inp-plan').value;
-      const provider = inferred.provider;
-      const email = inferred.email;
+      const name = nameInput || (vaultData && vaultData.name) || inferred.defaultName;
+      const plan = (vaultData && vaultData.plan) || document.getElementById('inp-plan').value;
+      const provider = vaultData ? 'cloud-vault' : inferred.provider;
+      const email = (vaultData && vaultData.email) || inferred.email;
       const apiKey = inferred.apiKey;
       const apiEndpoint = document.getElementById('inp-endpoint').value.trim() || inferred.apiEndpoint;
-      const max = Math.max(1, parseInt(document.getElementById('inp-max').value, 10) || 2000000);
-      const remaining = Math.max(0, Math.min(max, parseInt(document.getElementById('inp-rem').value, 10) || 0));
+      const max = (vaultData && vaultData.max) || Math.max(1, parseInt(document.getElementById('inp-max').value, 10) || 2000000);
+      const remaining = vaultData
+        ? Math.max(0, vaultData.remaining)
+        : Math.max(0, Math.min(max, parseInt(document.getElementById('inp-rem').value, 10) || 0));
       const used = Math.max(0, max - remaining);
 
       if (editId) {
@@ -995,7 +1114,10 @@
           existing.apiEndpoint = apiEndpoint;
           existing.remaining = remaining;
           existing.max = max;
-          if (provider === 'manual') {
+          if (vaultData) {
+            existing.vaultKey = rawLogin.toLowerCase();
+            applyLiveDataToAccount(existing, vaultData);
+          } else if (provider === 'manual') {
             existing.tasks = {
               agent: Math.round(used * 0.65),
               auto: Math.round(used * 0.25),
@@ -1013,17 +1135,19 @@
           provider,
           apiKey,
           apiEndpoint,
+          vaultKey: vaultData ? rawLogin.toLowerCase() : '',
           remaining,
           max,
-          resetDays: 30,
-          tasks: {
+          resetDays: (vaultData && vaultData.resetDays) || 30,
+          tasks: (vaultData && vaultData.tasks) || {
             agent: Math.round(used * 0.65),
             auto: Math.round(used * 0.25),
             chat: Math.max(0, used - Math.round(used * 0.65) - Math.round(used * 0.25))
           },
-          trend: [30, 45, 50, 40, 60, 55, 70],
-          trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-          history: [
+          models: (vaultData && vaultData.models) || [],
+          trend: (vaultData && vaultData.trend) || [30, 45, 50, 40, 60, 55, 70],
+          trendLabels: (vaultData && vaultData.trendLabels) || ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+          history: (vaultData && vaultData.history) || [
             { id: 'tx-' + Date.now(), title: 'Account Logged In', taskType: 'Top-up', delta: remaining, timestamp: new Date().toISOString(), source: getProviderLabel(provider) }
           ]
         };
@@ -1034,7 +1158,12 @@
       persistAccounts();
       closeAddModal();
       renderDashboard();
-      syncActiveAccount(false);
+      if (vaultData) {
+        const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        setSyncStatus(`Cloud Sync (${email}) • ${timeStr}`, false, false);
+      } else {
+        syncActiveAccount(false);
+      }
     }
 
     function deleteEditingAccount() {

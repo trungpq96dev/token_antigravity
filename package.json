@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "build": "node scripts/build.js",
+    "sync": "node scripts/build.js && git add cloud-vault.json dist/cloud-vault.json && git commit -m \"chore: sync encrypted cloud vault\" && git push origin main",
     "start": "node server.js",
     "dev": "node server.js",
     "preview": "node server.js --dist"
