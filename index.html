@@ -2,7 +2,7 @@
 <html lang="vi" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Antigravity — Token % Quota Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -33,13 +33,13 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-3 sm:p-6 bg-[radial-gradient(ellipse_at_top,_#131b31_0%,_#06080e_72%)]">
+<body class="min-h-screen flex items-start sm:items-center justify-center p-2.5 pb-20 sm:p-6 bg-[radial-gradient(ellipse_at_top,_#131b31_0%,_#06080e_72%)]">
 
   <!-- App Window Frame -->
-  <div class="w-full max-w-5xl bg-[#0d111c]/95 border border-slate-800/90 rounded-2xl shadow-[0_25px_75px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col sm:flex-row">
+  <div class="w-full max-w-5xl bg-[#0d111c]/95 border border-slate-800/90 rounded-2xl shadow-[0_25px_75px_rgba(0,0,0,0.8)] overflow-visible flex flex-col sm:flex-row">
 
-    <!-- Left Slim Navigation Rail -->
-    <aside class="sm:w-16 bg-[#0a0d16] border-b sm:border-b-0 sm:border-r border-slate-800/80 p-3 flex sm:flex-col items-center justify-between sm:justify-start gap-5">
+    <!-- Left Slim Navigation Rail (Desktop) -->
+    <aside class="hidden sm:flex sm:w-16 bg-[#0a0d16] sm:border-r border-slate-800/80 rounded-l-2xl p-3 flex-col items-center justify-start gap-5 shrink-0">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/35 via-purple-500/20 to-cyan-400/30 border border-indigo-400/40 flex items-center justify-center shadow-[0_0_16px_rgba(99,102,241,0.35)]">
         <span class="font-bold text-sm tracking-tight bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">AG</span>
       </div>
@@ -55,36 +55,45 @@
     </aside>
 
     <!-- Main Workspace -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 min-w-0 flex flex-col">
 
       <!-- Top Header Bar with Account Switcher -->
-      <header class="px-6 py-4 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <span class="font-bold tracking-wider text-sm sm:text-base text-white">ANTIGRAVITY</span>
-          <span id="plan-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-            <span id="plan-name">--</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
-          </span>
-          <span id="low-alert-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
-            Low Quota
-          </span>
+      <header class="px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center justify-between sm:justify-start gap-2.5 flex-wrap">
+          <div class="flex items-center gap-2.5">
+            <div class="sm:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/35 via-purple-500/20 to-cyan-400/30 border border-indigo-400/40 flex items-center justify-center shrink-0">
+              <span class="font-bold text-xs tracking-tight bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">AG</span>
+            </div>
+            <span class="font-bold tracking-wider text-sm sm:text-base text-white">ANTIGRAVITY</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="plan-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] sm:text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+              <span id="plan-name">--</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
+            </span>
+            <span id="low-alert-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
+              Low Quota
+            </span>
+          </div>
         </div>
 
         <!-- Account Switcher Dropdown -->
-        <div class="relative" id="account-switcher-wrapper">
-          <button onclick="toggleAccountMenu()" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 text-xs sm:text-sm transition">
-            <span id="current-avatar" class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-400 text-[11px] font-bold text-slate-950 flex items-center justify-center">?</span>
-            <div class="text-left">
-              <div id="current-acc-name" class="font-medium text-slate-100 leading-tight">Chưa đăng nhập</div>
-              <div id="current-acc-email" class="text-[10px] text-slate-400 leading-tight">Nhấn để đăng nhập</div>
+        <div class="relative w-full sm:w-auto" id="account-switcher-wrapper">
+          <button onclick="toggleAccountMenu()" class="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 px-3 py-2 sm:py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 text-xs sm:text-sm transition">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span id="current-avatar" class="w-6 h-6 shrink-0 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-400 text-[11px] font-bold text-slate-950 flex items-center justify-center">?</span>
+              <div class="text-left min-w-0">
+                <div id="current-acc-name" class="font-medium text-slate-100 leading-tight truncate">Chưa đăng nhập</div>
+                <div id="current-acc-email" class="text-[10px] text-slate-400 leading-tight truncate">Nhấn để đăng nhập</div>
+              </div>
             </div>
-            <svg class="w-4 h-4 text-slate-400 ml-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-slate-400 ml-1 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
             </svg>
           </button>
 
           <!-- Dropdown List -->
-          <div id="account-menu" class="hidden absolute right-0 mt-2 w-72 rounded-xl bg-[#111625] border border-slate-700/90 shadow-2xl py-1.5 z-50">
+          <div id="account-menu" class="hidden absolute left-0 right-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-72 rounded-xl bg-[#111625] border border-slate-700/90 shadow-2xl py-1.5 z-50">
             <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
               <span>Chuyển đổi tài khoản</span>
               <span id="account-count" class="text-slate-500">0</span>
@@ -103,13 +112,13 @@
       </header>
 
       <!-- Content Area -->
-      <main class="p-6 space-y-6">
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <h1 class="text-xl sm:text-2xl font-semibold text-white tracking-tight">Remaining Token Quota</h1>
-            <span id="provider-badge" class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800/90 text-slate-300 border border-slate-700/70">Chưa kết nối</span>
+      <main class="p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div class="flex items-start sm:items-center justify-between gap-2.5">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+            <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight leading-tight">Remaining Token Quota</h1>
+            <span id="provider-badge" class="inline-flex w-fit items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800/90 text-cyan-300 border border-slate-700/70">Chưa kết nối</span>
           </div>
-          <button onclick="syncActiveAccount(true)" class="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1.5 transition">
+          <button onclick="syncActiveAccount(true)" class="px-2.5 py-1.5 sm:px-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-200 hover:text-cyan-300 flex items-center gap-1.5 shrink-0 transition">
             <svg id="sync-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -118,35 +127,35 @@
         </div>
 
         <!-- Hero Percentage Card -->
-        <section class="hero-glow border border-indigo-500/25 rounded-2xl p-5 sm:p-6 shadow-inner">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div class="space-y-2 flex-1">
-              <div class="text-xs font-semibold uppercase tracking-widest text-slate-400">OVERALL QUOTA REMAINING</div>
-              <div class="flex flex-wrap items-baseline gap-2.5">
+        <section class="hero-glow border border-indigo-500/25 rounded-2xl p-4 sm:p-6 shadow-inner">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5">
+            <div class="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
+              <div class="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-slate-400">OVERALL QUOTA REMAINING</div>
+              <div class="flex flex-wrap items-baseline gap-2">
                 <span id="overall-pct-val" class="text-4xl sm:text-5xl font-bold font-mono text-white tracking-tight">0%</span>
-                <span class="text-sm sm:text-base font-mono text-slate-400">/ 100% capacity</span>
+                <span class="text-xs sm:text-base font-mono text-slate-400">/ 100% capacity</span>
               </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex flex-row md:flex-col gap-2.5 shrink-0">
-              <button onclick="openPctModal()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-medium shadow-[0_0_22px_rgba(79,70,229,0.5)] transition">
+            <div class="grid grid-cols-2 md:flex md:flex-col gap-2 w-full md:w-auto shrink-0">
+              <button onclick="openPctModal()" class="px-3.5 sm:px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-medium shadow-[0_0_22px_rgba(79,70,229,0.5)] transition text-center">
                 ✎ Cập nhật %
               </button>
-              <button onclick="openAlertModal()" class="px-5 py-2.5 rounded-xl bg-slate-900/75 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs sm:text-sm font-medium transition">
+              <button onclick="openAlertModal()" class="px-3.5 sm:px-5 py-2.5 rounded-xl bg-slate-900/75 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs sm:text-sm font-medium transition text-center">
                 Alert Settings
               </button>
             </div>
           </div>
 
           <!-- Progress Bar -->
-          <div class="mt-5 space-y-2">
+          <div class="mt-4 sm:mt-5 space-y-2">
             <div class="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden">
               <div id="main-progress" class="h-full rounded-full progress-glow-normal transition-all duration-500" style="width: 0%;"></div>
             </div>
-            <div class="flex flex-wrap justify-between gap-2 text-xs text-slate-300">
-              <span id="percent-summary">Chưa có dữ liệu — hãy đăng nhập</span>
-              <span id="reset-summary" class="text-slate-400">Next refresh: --</span>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+              <span id="percent-summary" class="break-words">Chưa có dữ liệu — hãy đăng nhập</span>
+              <span id="reset-summary" class="text-slate-400 shrink-0">Next refresh: --</span>
             </div>
           </div>
         </section>
@@ -176,7 +185,7 @@
       </main>
 
       <!-- Footer -->
-      <footer class="px-6 py-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+      <footer class="px-4 py-3 sm:px-6 sm:py-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-400">
         <div class="flex items-center gap-2">
           <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="sync-status-text">Sẵn sàng</span>
@@ -626,13 +635,14 @@
         const { hasLimits, gW, cW, avg } = getAccountPercentages(acc);
         const pctLabel = hasLimits ? `Gemini ${gW}% • Claude ${cW}%` : `Còn ${avg}%`;
         return `
-          <div class="flex items-center justify-between px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
-            <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 text-left">
-              <div class="text-xs font-medium ${isActive ? 'text-cyan-300' : 'text-slate-200'}">${escapeHtml(acc.name)}</div>
-              <div class="text-[10px] text-slate-400">${escapeHtml(acc.plan)} • ${pctLabel}</div>
+          <div class="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
+            <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 min-w-0 text-left">
+              <div class="text-xs font-medium truncate ${isActive ? 'text-cyan-300' : 'text-slate-200'}">${escapeHtml(acc.name)}</div>
+              <div class="text-[10px] text-slate-400 truncate">${escapeHtml(acc.plan)} • ${pctLabel}</div>
             </button>
-            <div class="flex items-center gap-2 ml-2">
+            <div class="flex items-center gap-1.5 shrink-0">
               <button onclick="openEditModal('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700/60" title="Chỉnh sửa">✎</button>
+              <button onclick="quickDeleteAccount('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-500 hover:text-rose-400 px-1.5 py-0.5 rounded hover:bg-rose-500/15" title="Xóa tài khoản">✕</button>
               ${isActive ? '<span class="text-cyan-400 text-xs font-bold">✓</span>' : ''}
             </div>
           </div>
@@ -1170,6 +1180,13 @@
       } else {
         syncActiveAccount(false);
       }
+    }
+
+    function quickDeleteAccount(id) {
+      accounts = accounts.filter(a => a.id !== id);
+      if (activeId === id) activeId = accounts[0] ? accounts[0].id : '';
+      persistAccounts();
+      renderDashboard();
     }
 
     function deleteEditingAccount() {
