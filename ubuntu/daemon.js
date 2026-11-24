@@ -96,18 +96,26 @@ function ensureTmuxSession(alias, profileHome, agyBin) {
   const sessionName = `agy_${alias.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   ensureProfileSettings(profileHome);
   if (!tmuxHasSession(sessionName)) {
-    execFileSync('tmux', [
-      'new-session',
-      '-d',
-      '-s',
-      sessionName,
-      '-x',
-      '160',
-      '-y',
-      '45',
-      `HOME="${profileHome}" "${agyBin}"`,
-    ]);
-    return { sessionName, justStarted: true };
+    try {
+      execFileSync('tmux', [
+        'new-session',
+        '-d',
+        '-s',
+        sessionName,
+        '-x',
+        '160',
+        '-y',
+        '45',
+        `HOME="${profileHome}" "${agyBin}"`,
+      ], { stdio: 'ignore' });
+      return { sessionName, justStarted: true };
+    } catch (err) {
+      // Another process (e.g. systemd daemon) created the session at the same millisecond
+      if (tmuxHasSession(sessionName)) {
+        return { sessionName, justStarted: false };
+      }
+      throw err;
+    }
   }
   return { sessionName, justStarted: false };
 }
