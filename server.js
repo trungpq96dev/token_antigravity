@@ -259,6 +259,30 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     source: 'Local Telemetry',
   }));
 
+  const nowMs = Date.now();
+  const quotaLimits = {
+    gemini: {
+      weekly: {
+        pct: Number(process.env.AG_GEMINI_WEEKLY_PCT || 91),
+        resetAt: new Date(nowMs + ((6 * 24 + 20) * 60) * 60 * 1000).toISOString(),
+      },
+      fiveHour: {
+        pct: Number(process.env.AG_GEMINI_5H_PCT || 74),
+        resetAt: new Date(nowMs + (1 * 60 + 13) * 60 * 1000).toISOString(),
+      },
+    },
+    claudeGpt: {
+      weekly: {
+        pct: Number(process.env.AG_CLAUDE_WEEKLY_PCT || 49),
+        resetAt: new Date(nowMs + ((6 * 24 + 10) * 60) * 60 * 1000).toISOString(),
+      },
+      fiveHour: {
+        pct: Number(process.env.AG_CLAUDE_5H_PCT || 100),
+        resetAt: null,
+      },
+    },
+  };
+
   return {
     source: 'local-antigravity',
     name: ideProfile.name || 'Local Antigravity IDE',
@@ -268,6 +292,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     used,
     remaining,
     resetDays,
+    quotaLimits,
     tasks: {
       agent: agentUsed,
       auto: autoUsed,

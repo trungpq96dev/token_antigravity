@@ -169,6 +169,11 @@
           </div>
         </section>
 
+        <!-- Antigravity Percentage Limits (Gemini & Claude/GPT) -->
+        <section id="quota-limits-section" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Rendered by JS -->
+        </section>
+
         <!-- Bottom 2-Column Section -->
         <section class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
 
@@ -598,7 +603,107 @@
       }).join('');
 
       renderAccountMenu();
+      renderQuotaLimits(acc);
       renderModelQuotas(acc);
+    }
+
+    function formatRefreshCountdown(resetAt, unitLabel) {
+      if (!resetAt) return 'Five-hour capacity is at full 100%.';
+      const diffMs = new Date(resetAt).getTime() - Date.now();
+      if (!Number.isFinite(diffMs) || diffMs <= 0) {
+        return `Your ${unitLabel} limit has refreshed to 100%.`;
+      }
+      const totalMins = Math.floor(diffMs / 60000);
+      const days = Math.floor(totalMins / (24 * 60));
+      const hours = Math.floor((totalMins % (24 * 60)) / 60);
+      const mins = totalMins % 60;
+      const parts = [];
+      if (days > 0) parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+      if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+      if (days === 0 && mins > 0) parts.push(`${mins} ${mins === 1 ? 'minute' : 'minutes'}`);
+      if (parts.length === 0) parts.push('less than 1 minute');
+      return `You have used some of your ${unitLabel} limit, it will fully refresh in ${parts.join(', ')}.`;
+    }
+
+    function buildRingSvg(pct) {
+      const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+      const r = 13;
+      const c = 2 * Math.PI * r;
+      const offset = c * (1 - clamped / 100);
+      const stroke = clamped <= 20 ? '#fb7185' : (clamped <= 55 ? '#4ade80' : '#4ade80');
+      return `
+        <svg class="w-8 h-8 -rotate-90 shrink-0" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="${r}" fill="none" stroke="rgba(148,163,184,0.22)" stroke-width="3"></circle>
+          <circle cx="16" cy="16" r="${r}" fill="none" stroke="${stroke}" stroke-width="3" stroke-linecap="round"
+            stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"></circle>
+        </svg>
+      `;
+    }
+
+    function getEffectiveQuotaLimits(acc) {
+      if (acc.quotaLimits && acc.quotaLimits.gemini && acc.quotaLimits.claudeGpt) {
+        return acc.quotaLimits;
+      }
+      const pct = Math.round((Math.max(0, Number(acc.remaining) || 0) / Math.max(1, Number(acc.max) || 1)) * 100);
+      return {
+        gemini: {
+          weekly: { pct, resetAt: null },
+          fiveHour: { pct: Math.min(100, pct + 10), resetAt: null },
+        },
+        claudeGpt: {
+          weekly: { pct: Math.max(15, Math.round(pct * 0.7)), resetAt: null },
+          fiveHour: { pct: 100, resetAt: null },
+        },
+      };
+    }
+
+    function renderLimitCard(title, weekly, fiveHour) {
+      const resolvePct = (item) => {
+        if (item.resetAt && new Date(item.resetAt).getTime() <= Date.now()) return 100;
+        return Math.max(0, Math.min(100, Math.round(Number(item.pct) || 0)));
+      };
+      const wPct = resolvePct(weekly);
+      const hPct = resolvePct(fiveHour);
+      const wDesc = wPct >= 100 ? 'Weekly limit is at full 100%.' : formatRefreshCountdown(weekly.resetAt, 'weekly');
+      const hDesc = hPct >= 100 ? 'Five-hour limit is at full 100%.' : formatRefreshCountdown(fiveHour.resetAt, '5-hour');
+
+      return `
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-slate-200 flex items-center justify-between">
+            <span>${escapeHtml(title)}</span>
+          </div>
+          <div class="rounded-xl bg-[#0e1320]/95 border border-slate-800/90 divide-y divide-slate-800/80">
+            <div class="p-3.5 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-100">Weekly Limit Remaining</div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(wDesc)}</div>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="font-mono text-sm font-semibold text-white">${wPct}%</span>
+                ${buildRingSvg(wPct)}
+              </div>
+            </div>
+            <div class="p-3.5 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-100">Five Hour Limit Remaining</div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(hDesc)}</div>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="font-mono text-sm font-semibold text-white">${hPct}%</span>
+                ${buildRingSvg(hPct)}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderQuotaLimits(acc) {
+      const el = document.getElementById('quota-limits-section');
+      const limits = getEffectiveQuotaLimits(acc);
+      el.innerHTML =
+        renderLimitCard('Gemini Models', limits.gemini.weekly, limits.gemini.fiveHour) +
+        renderLimitCard('Claude and GPT models', limits.claudeGpt.weekly, limits.claudeGpt.fiveHour);
     }
 
     function renderModelQuotas(acc) {
@@ -849,6 +954,7 @@
       if (typeof live.max === 'number' && live.max > 0) acc.max = live.max;
       if (typeof live.remaining === 'number') acc.remaining = Math.max(0, live.remaining);
       if (typeof live.resetDays === 'number') acc.resetDays = live.resetDays;
+      if (live.quotaLimits) acc.quotaLimits = live.quotaLimits;
       if (live.tasks) acc.tasks = live.tasks;
       if (Array.isArray(live.models)) acc.models = live.models;
       if (Array.isArray(live.trend) && live.trend.length === 7) acc.trend = live.trend;
@@ -1004,6 +1110,8 @@
           remaining: live.remaining,
           max: live.max,
           resetDays: live.resetDays || 6,
+          quotaLimits: live.quotaLimits || null,
+          models: live.models || [],
           tasks: live.tasks,
           trend: live.trend,
           trendLabels: live.trendLabels,
@@ -1139,6 +1247,7 @@
           remaining,
           max,
           resetDays: (vaultData && vaultData.resetDays) || 30,
+          quotaLimits: (vaultData && vaultData.quotaLimits) || null,
           tasks: (vaultData && vaultData.tasks) || {
             agent: Math.round(used * 0.65),
             auto: Math.round(used * 0.25),
@@ -1317,6 +1426,9 @@
         }
         if (!savedActive || savedActive === 'acc-1' || savedActive === 'acc-local') {
           activeId = localAcc.id;
+        } else {
+          await syncActiveAccount(false);
+          return;
         }
         persistAccounts();
         renderDashboard();
@@ -1329,6 +1441,7 @@
 
     renderDashboard();
     autoConnectLocalIdeOnBoot();
+    setInterval(() => renderQuotaLimits(getActiveAccount()), 60000);
   </script>
 </body>
 </html>

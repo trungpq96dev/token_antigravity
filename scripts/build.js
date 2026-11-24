@@ -134,6 +134,7 @@ function buildEncryptedCloudVault() {
     used: telemetry.used,
     remaining: telemetry.remaining,
     resetDays: telemetry.resetDays,
+    quotaLimits: telemetry.quotaLimits,
     tasks: telemetry.tasks,
     models: telemetry.models || [],
     trend: telemetry.trend,
