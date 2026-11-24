@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const crypto = require('crypto');
 const { execFileSync, execSync } = require('child_process');
 
@@ -16,6 +17,8 @@ const BASE_DIR = process.env.AG_TRACKER_DIR || '/opt/ag-tracker';
 const PROFILES_DIR = path.join(BASE_DIR, 'profiles');
 const STATE_DIR = path.join(BASE_DIR, 'state');
 const CONFIG_PATH = path.join(BASE_DIR, 'config.json');
+const TUNNEL_URL_PATH = path.join(STATE_DIR, 'tunnel-url.txt');
+const HTTP_PORT = Number(process.env.AG_HTTP_PORT || 3888);
 const POLL_INTERVAL_MS = Number(process.env.AG_POLL_INTERVAL_MS || 60 * 1000);
 const MIN_PUSH_COOLDOWN_MS = Number(process.env.AG_MIN_PUSH_COOLDOWN_MS || 90 * 1000);
 const HEARTBEAT_PUSH_MS = Number(process.env.AG_HEARTBEAT_PUSH_MS || 30 * 60 * 1000);
@@ -24,24 +27,46 @@ fs.mkdirSync(PROFILES_DIR, { recursive: true });
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
 function loadConfig() {
-  if (!fs.existsSync(CONFIG_PATH)) {
-    return {
-      repoUrl: 'https://github.com/trungpq96dev/token_antigravity.git',
-      gitToken: '',
-      branch: 'quota-data',
-      extraAliases: {},
-    };
+  const defaults = {
+    repoUrl: 'https://github.com/trungpq96dev/token_antigravity.git',
+    gitToken: '',
+    branch: 'quota-data',
+    extraAliases: {},
+    apiSecret: '',
+    customTunnelUrl: '',
+  };
+  let cfg = { ...defaults };
+  if (fs.existsSync(CONFIG_PATH)) {
+    try {
+      cfg = { ...defaults, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
+    } catch {
+      cfg = { ...defaults };
+    }
   }
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch {
-    return {
-      repoUrl: 'https://github.com/trungpq96dev/token_antigravity.git',
-      gitToken: '',
-      branch: 'quota-data',
-      extraAliases: {},
-    };
+  if (!cfg.apiSecret) {
+    cfg.apiSecret = crypto.randomBytes(24).toString('hex');
+    try {
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+    } catch {
+      // Ignore if read-only in test mode
+    }
   }
+  return cfg;
+}
+
+function getCurrentTunnelUrl(config) {
+  if (config && config.customTunnelUrl && /^https:\/\/[a-z0-9.-]+/i.test(config.customTunnelUrl.trim())) {
+    return config.customTunnelUrl.trim().replace(/\/+$/, '');
+  }
+  if (fs.existsSync(TUNNEL_URL_PATH)) {
+    try {
+      const raw = fs.readFileSync(TUNNEL_URL_PATH, 'utf8').trim().replace(/\/+$/, '');
+      if (/^https:\/\/[a-z0-9.-]+$/i.test(raw)) return raw;
+    } catch {
+      // Ignore read errors
+    }
+  }
+  return '';
 }
 
 function findAgyBinary() {
@@ -398,10 +423,32 @@ function pushVaultToOrphanBranch(vaultJsonStr, config) {
 
 let lastPushedFingerprint = '';
 let lastPushTimeMs = 0;
+const latestCache = new Map(); // alias -> { payload, fetchedAtMs }
+const inflightPolls = new Map(); // alias -> Promise
+
+async function pollProfileSerialized(alias, profileHome, agyBin) {
+  if (inflightPolls.has(alias)) {
+    return inflightPolls.get(alias);
+  }
+  const promise = (async () => {
+    try {
+      const res = await pollProfile(alias, profileHome, agyBin);
+      if (res && !res.unauthenticated && res.payload) {
+        latestCache.set(alias, { payload: res.payload, fetchedAtMs: Date.now() });
+      }
+      return res;
+    } finally {
+      inflightPolls.delete(alias);
+    }
+  })();
+  inflightPolls.set(alias, promise);
+  return promise;
+}
 
 async function runCycle(options = {}) {
   const agyBin = findAgyBinary();
   const config = loadConfig();
+  const tunnelUrl = getCurrentTunnelUrl(config);
   const entries = fs.existsSync(PROFILES_DIR)
     ? fs.readdirSync(PROFILES_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
     : [];
@@ -416,13 +463,20 @@ async function runCycle(options = {}) {
   const activeResults = [];
   for (const dir of entries) {
     const profileHome = path.join(PROFILES_DIR, dir.name);
-    const res = await pollProfile(dir.name, profileHome, agyBin);
+    const res = await pollProfileSerialized(dir.name, profileHome, agyBin);
     if (!res) continue;
     if (res.unauthenticated) {
       if (options.printStatus) {
         console.log(`- [${dir.name}]: Chưa hoàn tất đăng nhập OAuth (chạy: sudo ag-tracker login ${dir.name})`);
       }
       continue;
+    }
+    if (tunnelUrl && config.apiSecret) {
+      res.payload.liveEndpoint = {
+        url: tunnelUrl,
+        token: config.apiSecret,
+        alias: res.alias,
+      };
     }
     activeResults.push(res);
     fs.writeFileSync(
@@ -441,17 +495,22 @@ async function runCycle(options = {}) {
           `Claude/GPT: ${q.claudeGpt.weekly.pct}% W / ${q.claudeGpt.fiveHour.pct}% 5h`
       );
     }
+    if (tunnelUrl) {
+      console.log(`⚡ Realtime Tunnel: ${tunnelUrl}`);
+    }
   }
 
   if (activeResults.length === 0) return;
 
-  // Fingerprint only rounded percentages so unchanged minutes make 0 GitHub commits
-  const fingerprint = activeResults
-    .map(r => {
-      const q = r.payload.quotaLimits;
-      return `${r.alias}:${q.gemini.weekly.pct}:${q.gemini.fiveHour.pct}:${q.claudeGpt.weekly.pct}:${q.claudeGpt.fiveHour.pct}`;
-    })
-    .join('|');
+  // Fingerprint percentages + tunnelUrl so unchanged minutes make 0 GitHub commits,
+  // while tunnel URL rotation after reboot auto-syncs immediately
+  const fingerprint =
+    activeResults
+      .map(r => {
+        const q = r.payload.quotaLimits;
+        return `${r.alias}:${q.gemini.weekly.pct}:${q.gemini.fiveHour.pct}:${q.claudeGpt.weekly.pct}:${q.claudeGpt.fiveHour.pct}`;
+      })
+      .join('|') + (tunnelUrl ? `@${tunnelUrl}` : '');
 
   const now = Date.now();
   const changed = fingerprint !== lastPushedFingerprint;
@@ -499,6 +558,133 @@ async function runCycle(options = {}) {
   }
 }
 
+function constantTimeTokenMatch(provided, expected) {
+  if (!provided || !expected) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(String(expected));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function resolveProfileAlias(requestedAlias, requestedEmail) {
+  const entries = fs.existsSync(PROFILES_DIR)
+    ? fs.readdirSync(PROFILES_DIR, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
+    : [];
+  if (entries.length === 0) return null;
+
+  const cleanAlias = String(requestedAlias || '').trim().toLowerCase();
+  const cleanEmail = String(requestedEmail || '').trim().toLowerCase();
+
+  if (cleanAlias) {
+    const direct = entries.find(e => e.toLowerCase() === cleanAlias);
+    if (direct) return direct;
+  }
+  if (cleanEmail) {
+    const prefix = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
+    const byPrefix = entries.find(e => e.toLowerCase() === prefix);
+    if (byPrefix) return byPrefix;
+    for (const [alias, entry] of latestCache.entries()) {
+      if ((entry.payload.email || '').toLowerCase() === cleanEmail) return alias;
+    }
+  }
+  return entries.length === 1 ? entries[0] : entries[0];
+}
+
+function startRealtimeHttpServer() {
+  const server = http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const urlObj = new URL(req.url || '/', `http://127.0.0.1:${HTTP_PORT}`);
+    if (urlObj.pathname === '/api/health') {
+      const cfg = loadConfig();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, mode: 'ubuntu-realtime', tunnelActive: Boolean(getCurrentTunnelUrl(cfg)) }));
+      return;
+    }
+
+    if (urlObj.pathname === '/api/live-usage' && (req.method === 'GET' || req.method === 'POST')) {
+      const cfg = loadConfig();
+      const authHeader = String(req.headers.authorization || '');
+      const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+      if (!constantTimeTokenMatch(bearer, cfg.apiSecret)) {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+
+      let body = {};
+      if (req.method === 'POST') {
+        try {
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          const rawBody = Buffer.concat(chunks).toString('utf8');
+          if (rawBody) body = JSON.parse(rawBody);
+        } catch {
+          body = {};
+        }
+      }
+
+      const alias = resolveProfileAlias(
+        body.alias || urlObj.searchParams.get('alias'),
+        body.email || urlObj.searchParams.get('email')
+      );
+      if (!alias) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'No logged-in profile on Ubuntu' }));
+        return;
+      }
+
+      const wantFresh = body.fresh !== false && urlObj.searchParams.get('fresh') !== '0';
+      const cached = latestCache.get(alias);
+      if (!wantFresh && cached && Date.now() - cached.fetchedAtMs < 45000) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ...cached.payload, source: 'ubuntu-realtime', cached: true }));
+        return;
+      }
+
+      try {
+        const agyBin = findAgyBinary();
+        const profileHome = path.join(PROFILES_DIR, alias);
+        const result = await pollProfileSerialized(alias, profileHome, agyBin);
+        if (!result || result.unauthenticated || !result.payload) {
+          res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Profile unavailable or unauthenticated' }));
+          return;
+        }
+        const tunnelUrl = getCurrentTunnelUrl(cfg);
+        const livePayload = {
+          ...result.payload,
+          source: 'ubuntu-realtime',
+          cached: false,
+          ...(tunnelUrl ? { liveEndpoint: { url: tunnelUrl, token: cfg.apiSecret, alias } } : {}),
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(livePayload));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Not Found' }));
+  });
+
+  server.listen(HTTP_PORT, '127.0.0.1', () => {
+    console.log(`[ag-tracker] Realtime HTTP API listening on http://127.0.0.1:${HTTP_PORT}`);
+  });
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--status')) {
@@ -510,7 +696,8 @@ async function main() {
     return;
   }
 
-  console.log(`[ag-tracker] Starting 1-minute smart-diff collector (interval=${POLL_INTERVAL_MS}ms)...`);
+  startRealtimeHttpServer();
+  console.log(`[ag-tracker] Starting 1-minute smart-diff collector + realtime server (interval=${POLL_INTERVAL_MS}ms)...`);
   while (true) {
     try {
       await runCycle();

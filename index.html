@@ -387,8 +387,12 @@
       return Number(n || 0).toLocaleString('en-US');
     }
 
-    function getProviderLabel(provider) {
+    function getProviderLabel(provider, acc = null) {
+      if (acc && acc.liveEndpoint && acc.liveEndpoint.url) {
+        return '⚡ Realtime Ubuntu';
+      }
       const map = {
+        'ubuntu-realtime': '⚡ Realtime Ubuntu',
         'cloud-vault': 'Cloud Sync',
         local: 'Local IDE Sync',
         openrouter: 'OpenRouter API',
@@ -577,7 +581,7 @@
       document.getElementById('current-avatar').textContent = (acc.name || 'A').charAt(0).toUpperCase();
       document.getElementById('current-acc-name').textContent = acc.name;
       document.getElementById('current-acc-email').textContent = acc.email;
-      document.getElementById('provider-badge').textContent = getProviderLabel(acc.provider);
+      document.getElementById('provider-badge').textContent = getProviderLabel(acc.provider, acc);
 
       const { hasLimits, gW, g5, cW, c5, avg } = getAccountPercentages(acc);
       document.getElementById('overall-pct-val').textContent = `${avg.toFixed(avg % 1 === 0 ? 0 : 1)}%`;
@@ -738,23 +742,83 @@
       return null;
     }
 
-    async function fetchRealAccountData(acc) {
+    async function fetchFromUbuntuTunnel(acc, forceFresh = false) {
+      const ep = acc && acc.liveEndpoint;
+      if (!ep || !ep.url || !ep.token) return null;
+      const controller = new AbortController();
+      const timeoutMs = forceFresh ? 15000 : 6000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(`${ep.url.replace(/\/+$/, '')}/api/live-usage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ep.token}`
+          },
+          body: JSON.stringify({
+            alias: ep.alias || acc.name || '',
+            email: acc.email || '',
+            fresh: Boolean(forceFresh)
+          }),
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.quotaLimits) return data;
+        return null;
+      } catch {
+        clearTimeout(timer);
+        return null;
+      }
+    }
+
+    async function fetchRealAccountData(acc, manualTrigger = false) {
       const provider = acc.provider || 'manual';
       if (provider === 'manual') return null;
 
-      if (provider === 'local' || provider === 'cloud-vault') {
-        const vaultPass = acc.vaultKey || acc.email;
-        if (vaultPass && provider === 'cloud-vault') {
-          const unlocked = await unlockFromCloudVault(vaultPass);
-          if (unlocked) return unlocked;
+      if (provider === 'local' || provider === 'cloud-vault' || provider === 'ubuntu-realtime') {
+        // Method B (Realtime): Try direct Cloudflare Tunnel to Ubuntu server first
+        if (acc.liveEndpoint && acc.liveEndpoint.url && acc.liveEndpoint.token) {
+          const realtime = await fetchFromUbuntuTunnel(acc, manualTrigger);
+          if (realtime) return realtime;
         }
+
+        // Method A (Cloud Vault): Fetch encrypted vault from GitHub `quota-data` (also auto-discovers rotated tunnel URL!)
+        const vaultPass = acc.vaultKey || acc.email;
+        if (vaultPass && (provider === 'cloud-vault' || provider === 'ubuntu-realtime')) {
+          const unlocked = await unlockFromCloudVault(vaultPass);
+          if (unlocked) {
+            const newEp = unlocked.liveEndpoint;
+            const prevUrl = acc.liveEndpoint ? acc.liveEndpoint.url : '';
+            if (newEp && newEp.url && newEp.token && newEp.url !== prevUrl) {
+              acc.liveEndpoint = newEp;
+              if (manualTrigger) {
+                const retryRealtime = await fetchFromUbuntuTunnel(acc, true);
+                if (retryRealtime) return retryRealtime;
+              }
+            }
+            return unlocked;
+          }
+        }
+
         const bridge = await fetchLocalBridge(`/api/local-antigravity`);
         if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
           return bridge.data;
         }
         if (vaultPass) {
           const unlocked = await unlockFromCloudVault(vaultPass);
-          if (unlocked) return unlocked;
+          if (unlocked) {
+            if (unlocked.liveEndpoint && unlocked.liveEndpoint.url && unlocked.liveEndpoint.token) {
+              acc.liveEndpoint = unlocked.liveEndpoint;
+              if (manualTrigger) {
+                const retryRealtime = await fetchFromUbuntuTunnel(acc, true);
+                if (retryRealtime) return retryRealtime;
+              }
+            }
+            return unlocked;
+          }
         }
         return null;
       }
@@ -793,9 +857,12 @@
 
     function applyLiveDataToAccount(acc, live) {
       if (!live) return;
-      if (live.source === 'local-antigravity' || live.source === 'cloud-vault') {
+      if (live.source === 'local-antigravity' || live.source === 'cloud-vault' || live.source === 'ubuntu-realtime') {
         if (!acc.customNameOverride && live.name) acc.name = live.name;
         if (acc.id === 'acc-local' && live.email && live.email !== 'local@antigravity.dev') acc.email = live.email;
+      }
+      if (live.liveEndpoint && live.liveEndpoint.url && live.liveEndpoint.token) {
+        acc.liveEndpoint = live.liveEndpoint;
       }
       if (live.plan) acc.plan = live.plan;
       if (typeof live.max === 'number' && live.max > 0) acc.max = live.max;
@@ -812,18 +879,29 @@
         setSyncStatus('Chưa có tài khoản — hãy đăng nhập', false, false);
         return;
       }
-      setSyncStatus('Syncing...', true, false);
+      setSyncStatus(
+        manualTrigger && acc.liveEndpoint ? '⚡ Đang gọi Ubuntu realtime...' : 'Syncing...',
+        true,
+        false
+      );
       try {
-        const live = await fetchRealAccountData(acc);
+        const live = await fetchRealAccountData(acc, manualTrigger);
         if (live) {
           applyLiveDataToAccount(acc, live);
           persistAccounts();
           renderDashboard();
-          const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          setSyncStatus(`Synced (${getProviderLabel(acc.provider)}) • ${timeStr}`, false, false);
+          const timeStr = new Date().toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: live.source === 'ubuntu-realtime' ? '2-digit' : undefined
+          });
+          const label = live.source === 'ubuntu-realtime'
+            ? (live.cached ? '⚡ Realtime Ubuntu (cache)' : '⚡ Realtime Ubuntu')
+            : getProviderLabel(acc.provider, acc);
+          setSyncStatus(`${label} • ${timeStr}`, false, false);
         } else {
           if (manualTrigger) await new Promise(r => setTimeout(r, 300));
-          setSyncStatus(`Ready (${getProviderLabel(acc.provider)})`, false, false);
+          setSyncStatus(`Ready (${getProviderLabel(acc.provider, acc)})`, false, false);
         }
       } catch (err) {
         setSyncStatus(`Sync warning: ${err.message}`, false, true);
@@ -1070,6 +1148,7 @@
           apiKey,
           apiEndpoint,
           vaultKey: vaultData ? rawLogin.toLowerCase() : '',
+          liveEndpoint: (vaultData && vaultData.liveEndpoint) || null,
           remaining: (vaultData && vaultData.remaining) || 0,
           max: (vaultData && vaultData.max) || 0,
           resetDays: (vaultData && vaultData.resetDays) || 0,
@@ -1086,7 +1165,8 @@
       renderDashboard();
       if (vaultData) {
         const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        setSyncStatus(`Cloud Sync (${email}) • ${timeStr}`, false, false);
+        const modeTag = vaultData.liveEndpoint ? '⚡ Realtime Ubuntu' : 'Cloud Sync';
+        setSyncStatus(`${modeTag} (${email}) • ${timeStr}`, false, false);
       } else {
         syncActiveAccount(false);
       }

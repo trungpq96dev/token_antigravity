@@ -35,7 +35,7 @@ else
   echo "[2/5] Node.js $(node -v) đã được cài đặt."
 fi
 
-echo "[3/5] Cài đặt Google Antigravity CLI (agy)..."
+echo "[3/6] Cài đặt Google Antigravity CLI (agy) và Cloudflare Tunnel (cloudflared)..."
 if ! command -v agy >/dev/null 2>&1 && [ ! -x /usr/local/bin/agy ]; then
   curl -fsSL https://antigravity.google/cli/install.sh | bash
   if [ -x "${HOME}/.local/bin/agy" ]; then
@@ -46,7 +46,22 @@ else
   echo "  -> agy CLI đã sẵn sàng."
 fi
 
-echo "[4/5] Tải mã nguồn bộ thu thập vào /opt/ag-tracker..."
+if [ ! -x /usr/local/bin/cloudflared ]; then
+  ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
+  case "${ARCH}" in
+    amd64|x86_64) CF_ARCH="amd64" ;;
+    arm64|aarch64) CF_ARCH="arm64" ;;
+    armhf|armv7l) CF_ARCH="arm" ;;
+    *) CF_ARCH="amd64" ;;
+  esac
+  echo "  -> Tải cloudflared (${CF_ARCH})..."
+  curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CF_ARCH}" -o /usr/local/bin/cloudflared
+  chmod 755 /usr/local/bin/cloudflared
+else
+  echo "  -> cloudflared đã sẵn sàng."
+fi
+
+echo "[4/6] Tải mã nguồn bộ thu thập vào /opt/ag-tracker..."
 mkdir -p /opt/ag-tracker/profiles /opt/ag-tracker/state
 if [ -d /opt/ag-tracker/repo/.git ]; then
   git -C /opt/ag-tracker/repo fetch origin main
@@ -56,6 +71,7 @@ else
 fi
 chmod +x /opt/ag-tracker/repo/ubuntu/statusline-hook.sh
 chmod +x /opt/ag-tracker/repo/ubuntu/daemon.js
+chmod +x /opt/ag-tracker/repo/ubuntu/tunnel-runner.sh
 
 if [ ! -f /opt/ag-tracker/config.json ]; then
   cat > /opt/ag-tracker/config.json <<'EOF'
@@ -127,25 +143,45 @@ JSON
   sync)
     node /opt/ag-tracker/repo/ubuntu/daemon.js --once
     ;;
+  tunnel)
+    if [ -f /opt/ag-tracker/state/tunnel-url.txt ]; then
+      echo "⚡ Realtime Cloudflare Tunnel URL: $(cat /opt/ag-tracker/state/tunnel-url.txt)"
+    else
+      echo "⏳ Cloudflare Tunnel đang khởi động... Xem log: journalctl -u ag-tunnel -n 20"
+    fi
+    systemctl is-active ag-tunnel ag-tracker || true
+    ;;
+  update)
+    systemctl stop ag-tracker ag-tunnel >/dev/null 2>&1 || true
+    git -C /opt/ag-tracker/repo fetch origin main
+    git -C /opt/ag-tracker/repo reset --hard origin/main
+    chmod +x /opt/ag-tracker/repo/ubuntu/statusline-hook.sh /opt/ag-tracker/repo/ubuntu/daemon.js /opt/ag-tracker/repo/ubuntu/tunnel-runner.sh
+    systemctl start ag-tunnel
+    sleep 4
+    node /opt/ag-tracker/repo/ubuntu/daemon.js --once
+    systemctl start ag-tracker
+    ;;
   logs)
-    journalctl -u ag-tracker -f -n 50
+    journalctl -u ag-tracker -u ag-tunnel -f -n 50
     ;;
   *)
     echo "Các lệnh quản lý Antigravity Quota Tracker:"
     echo "  sudo ag-tracker login <ten>       - Đăng nhập thêm 1 tài khoản Google Antigravity"
     echo "  sudo ag-tracker set-token <PAT>   - Cài GitHub Token để tự động đẩy dữ liệu lên web"
     echo "  sudo ag-tracker status            - Xem trực tiếp % các tài khoản ngay trên Ubuntu"
+    echo "  sudo ag-tracker tunnel            - Xem link Cloudflare Tunnel Realtime đang chạy"
     echo "  sudo ag-tracker sync              - Ép cập nhật và đẩy lên GitHub ngay lập tức"
-    echo "  sudo ag-tracker logs              - Xem nhật ký chạy ngầm (1 phút/lần)"
+    echo "  sudo ag-tracker update            - Cập nhật code mới nhất và khởi động lại"
+    echo "  sudo ag-tracker logs              - Xem nhật ký chạy ngầm (collector + tunnel)"
     ;;
 esac
 EOF
 chmod 755 /usr/local/bin/ag-tracker
 
-echo "[5/5] Cấu hình dịch vụ chạy ngầm systemd (ag-tracker.service)..."
+echo "[5/6] Cấu hình dịch vụ chạy ngầm systemd (ag-tracker.service)..."
 cat > /etc/systemd/system/ag-tracker.service <<'EOF'
 [Unit]
-Description=Antigravity Live Quota Collector (1-minute smart-diff sync)
+Description=Antigravity Live Quota Collector + Realtime HTTP API
 After=network-online.target
 Wants=network-online.target
 
@@ -157,24 +193,50 @@ ExecStart=/usr/bin/node /opt/ag-tracker/repo/ubuntu/daemon.js
 Restart=always
 RestartSec=10
 Environment=AG_POLL_INTERVAL_MS=60000
+Environment=AG_HTTP_PORT=3888
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "[6/6] Cấu hình dịch vụ Cloudflare Tunnel Realtime (ag-tunnel.service)..."
+cat > /etc/systemd/system/ag-tunnel.service <<'EOF'
+[Unit]
+Description=Antigravity Realtime Cloudflare Tunnel (Quick/Named)
+After=network-online.target ag-tracker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ag-tracker/repo
+ExecStart=/opt/ag-tracker/repo/ubuntu/tunnel-runner.sh
+Restart=always
+RestartSec=5
+Environment=AG_HTTP_PORT=3888
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable ag-tracker >/dev/null 2>&1
+systemctl enable ag-tracker ag-tunnel >/dev/null 2>&1
+systemctl restart ag-tunnel
+sleep 4
 systemctl restart ag-tracker
 
 echo ""
-echo "✅ CÀI ĐẶT HOÀN TẤT!"
+echo "✅ CÀI ĐẶT HOÀN TẤT (CHẾ ĐỘ KẾT HỢP A + B REALTIME)!"
+if [ -f /opt/ag-tracker/state/tunnel-url.txt ]; then
+  echo "⚡ Cloudflare Tunnel Realtime: $(cat /opt/ag-tracker/state/tunnel-url.txt)"
+fi
 echo "----------------------------------------------------------"
 echo "Bước tiếp theo (chỉ làm 1 lần ngay tại terminal này):"
 echo "  1) Đăng nhập tài khoản Google Antigravity:"
 echo "     sudo ag-tracker login acc1"
 echo ""
 echo "  2) Gắn GitHub Personal Access Token (quyền repo/contents) để tự đẩy lên web:"
-echo "     sudo ag-tracker set-token ghp_xxxxxxxxxxxxxxxxxxxx"
+echo "     sudo ag-tracker set-token <GITHUB_PAT>"
 echo ""
 echo "  3) Kiểm tra % ngay trên terminal:"
 echo "     sudo ag-tracker status"
