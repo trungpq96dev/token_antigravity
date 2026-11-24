@@ -673,18 +673,43 @@
       return out;
     }
 
+    async function fetchCloudVaultJson() {
+      // 1) Zero-cache GitHub Contents API from Ubuntu's `quota-data` orphan branch
+      try {
+        const apiRes = await fetch(
+          'https://api.github.com/repos/trungpq96dev/token_antigravity/contents/cloud-vault.json?ref=quota-data',
+          { cache: 'no-store' }
+        );
+        if (apiRes.ok) {
+          const meta = await apiRes.json();
+          if (meta && typeof meta.content === 'string') {
+            const rawText = new TextDecoder().decode(base64ToBytes(meta.content.replace(/\s+/g, '')));
+            const parsed = JSON.parse(rawText);
+            if (parsed && Array.isArray(parsed.vaults) && parsed.vaults.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      } catch {
+        // Fallback below if rate-limited or branch not created yet
+      }
+
+      // 2) Fallback to static `./cloud-vault.json`
+      try {
+        const res = await fetch(`./cloud-vault.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) return await res.json();
+      } catch {
+        // Ignore network failure
+      }
+      return null;
+    }
+
     async function unlockFromCloudVault(passphrase) {
       const clean = String(passphrase || '').trim().toLowerCase();
       if (!clean || !window.crypto || !window.crypto.subtle) return null;
 
-      let vaultJson;
-      try {
-        const res = await fetch(`./cloud-vault.json?t=${Date.now()}`);
-        if (!res.ok) return null;
-        vaultJson = await res.json();
-      } catch {
-        return null;
-      }
+      const vaultJson = await fetchCloudVaultJson();
+      if (!vaultJson) return null;
 
       const slots = Array.isArray(vaultJson.vaults) ? vaultJson.vaults : [];
       if (slots.length === 0) return null;
@@ -718,11 +743,15 @@
       if (provider === 'manual') return null;
 
       if (provider === 'local' || provider === 'cloud-vault') {
+        const vaultPass = acc.vaultKey || acc.email;
+        if (vaultPass && provider === 'cloud-vault') {
+          const unlocked = await unlockFromCloudVault(vaultPass);
+          if (unlocked) return unlocked;
+        }
         const bridge = await fetchLocalBridge(`/api/local-antigravity`);
         if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
           return bridge.data;
         }
-        const vaultPass = acc.vaultKey || acc.email;
         if (vaultPass) {
           const unlocked = await unlockFromCloudVault(vaultPass);
           if (unlocked) return unlocked;
