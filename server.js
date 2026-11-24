@@ -134,8 +134,9 @@ function readAntigravityIdeAuthStatus() {
         if (typeof auth.userStatusProtoBinaryBase64 === 'string') {
           const buf = Buffer.from(auth.userStatusProtoBinaryBase64, 'base64');
           const latin = buf.toString('latin1');
-          if (/Google AI Ultra/i.test(latin)) plan = 'Ultra Plan';
-          else if (/Google AI Pro/i.test(latin)) plan = 'Google AI Pro';
+          if (/g1-ultra-tier/i.test(latin)) plan = 'Ultra Plan';
+          else if (/g1-pro-tier/i.test(latin)) plan = 'Google AI Pro';
+          else if (/free/i.test(latin)) plan = 'Free Tier';
 
           const modelRegex = /(Gemini [0-9.]+ [A-Za-z]+ \([A-Za-z]+\)|Claude [A-Za-z]+ [0-9.]+ \([A-Za-z]+\)|GPT-OSS [0-9]+B \([A-Za-z]+\))/g;
           let m;
@@ -223,10 +224,15 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     ? ideProfile.models.reduce((s, m) => s + m.remainingPct, 0) / ideProfile.models.length
     : null;
 
-  const used = recentTokens > 0
-    ? Math.min(maxTokens, recentTokens)
-    : (avgModelRemainingPct !== null ? Math.round(maxTokens * (1 - avgModelRemainingPct / 100)) : 579500);
-  const remaining = Math.max(0, maxTokens - used);
+  let remaining;
+  let used;
+  if (avgModelRemainingPct !== null) {
+    remaining = Math.round(maxTokens * (avgModelRemainingPct / 100));
+    used = recentTokens > 0 ? recentTokens : Math.max(0, maxTokens - remaining);
+  } else {
+    used = recentTokens > 0 ? Math.min(maxTokens, recentTokens) : 579500;
+    remaining = Math.max(0, maxTokens - used);
+  }
 
   const agentUsed = Math.round(used * 0.655);
   const autoUsed = Math.round(used * 0.25);
