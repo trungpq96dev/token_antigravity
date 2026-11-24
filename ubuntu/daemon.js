@@ -102,9 +102,9 @@ function ensureTmuxSession(alias, profileHome, agyBin) {
       '-s',
       sessionName,
       '-x',
-      '120',
+      '160',
       '-y',
-      '40',
+      '45',
       `HOME="${profileHome}" "${agyBin}"`,
     ]);
     return { sessionName, justStarted: true };
@@ -118,9 +118,9 @@ function sleep(ms) {
 
 function parseDurationTextToIso(text) {
   if (!text) return null;
-  const daysMatch = text.match(/(\d+)\s*day/i);
-  const hoursMatch = text.match(/(\d+)\s*hour/i);
-  const minsMatch = text.match(/(\d+)\s*min/i);
+  const daysMatch = text.match(/(\d+)\s*(?:days?|d)\b/i);
+  const hoursMatch = text.match(/(\d+)\s*(?:hours?|hrs?|h)\b/i);
+  const minsMatch = text.match(/(\d+)\s*(?:minutes?|mins?|m)\b/i);
   const days = daysMatch ? Number(daysMatch[1]) : 0;
   const hours = hoursMatch ? Number(hoursMatch[1]) : 0;
   const mins = minsMatch ? Number(minsMatch[1]) : 0;
@@ -135,6 +135,7 @@ function parseDurationTextToIso(text) {
 function parseUsagePaneText(paneText) {
   const clean = String(paneText || '').replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
   const result = {
+    email: '',
     geminiWeekly: null,
     gemini5h: null,
     claudeWeekly: null,
@@ -142,28 +143,49 @@ function parseUsagePaneText(paneText) {
     models: [],
   };
 
-  // Split into sections around Gemini and Claude/GPT headers if present
-  const geminiIdx = clean.search(/Gemini\s+Models/i);
-  const claudeIdx = clean.search(/Claude\s+(?:and|&)\s+GPT/i);
+  const accMatch = clean.match(/Account:\s*([^\s\r\n]+@[^\s\r\n]+)/i);
+  if (accMatch) result.email = accMatch[1].trim();
+
+  // Split into sections around GEMINI MODELS and CLAUDE AND GPT MODELS
+  const geminiIdx = clean.search(/GEMINI\s+MODELS/i);
+  const claudeIdx = clean.search(/CLAUDE\s+(?:AND|&)\s+GPT\s+MODELS/i);
 
   const extractLimitsFromBlock = (block) => {
-    let weekly = null;
-    let fiveHour = null;
-    const wMatch = block.match(/Weekly[^\n%]{0,80}?(\d{1,3})\s*%([\s\S]{0,160})/i);
-    if (wMatch) {
-      weekly = {
-        pct: Math.min(100, Number(wMatch[1])),
-        resetAt: parseDurationTextToIso(wMatch[2]),
+    const fiveIdx = block.search(/(?:Five[\s-]Hour|5[\s-]hour)\s+Limit\s+Remaining/i);
+    const weeklyPart = fiveIdx !== -1 ? block.slice(0, fiveIdx) : block;
+    const fivePart = fiveIdx !== -1 ? block.slice(fiveIdx) : '';
+
+    const parseSubLimit = (part, headerRe) => {
+      if (!part) return null;
+      const m = part.match(headerRe);
+      if (!m) return null;
+      const after = part.slice(m.index + m[0].length);
+      const refMatch = after.match(/refresh(?:es)?\s+in\s+([^\r\n]+)/i);
+      return {
+        pct: Math.min(100, Math.round(Number(m[1]) * 100) / 100),
+        resetAt: refMatch ? parseDurationTextToIso(refMatch[1]) : null,
       };
+    };
+
+    const weekly = parseSubLimit(
+      weeklyPart,
+      /Weekly\s+Limit\s+Remaining[\s\S]{0,160}?(\d{1,3}(?:\.\d+)?)\s*%/i
+    );
+    const fiveHour = parseSubLimit(
+      fivePart,
+      /(?:Five[\s-]Hour|5[\s-]hour)\s+Limit\s+Remaining[\s\S]{0,160}?(\d{1,3}(?:\.\d+)?)\s*%/i
+    );
+    const groupModels = [];
+    const gmMatch = block.match(/Models\s+within\s+this\s+group:\s*([^\r\n]+)/i);
+    if (gmMatch) {
+      for (const rawName of gmMatch[1].split(',')) {
+        const trimmed = rawName.trim().replace(/\.+$/, '');
+        if (trimmed.length >= 3 && !trimmed.endsWith('Orch')) {
+          groupModels.push(trimmed);
+        }
+      }
     }
-    const hMatch = block.match(/(?:Five[\s-]Hour|5[\s-]hour)[^\n%]{0,80}?(\d{1,3})\s*%([\s\S]{0,160})/i);
-    if (hMatch) {
-      fiveHour = {
-        pct: Math.min(100, Number(hMatch[1])),
-        resetAt: parseDurationTextToIso(hMatch[2]),
-      };
-    }
-    return { weekly, fiveHour };
+    return { weekly, fiveHour, groupModels };
   };
 
   if (geminiIdx !== -1) {
@@ -171,20 +193,19 @@ function parseUsagePaneText(paneText) {
     const parsed = extractLimitsFromBlock(clean.slice(geminiIdx, end));
     result.geminiWeekly = parsed.weekly;
     result.gemini5h = parsed.fiveHour;
+    const gPct = parsed.fiveHour ? parsed.fiveHour.pct : (parsed.weekly ? parsed.weekly.pct : 100);
+    for (const mName of parsed.groupModels) {
+      result.models.push({ name: mName, remainingPct: gPct });
+    }
   }
   if (claudeIdx !== -1) {
     const parsed = extractLimitsFromBlock(clean.slice(claudeIdx));
     result.claudeWeekly = parsed.weekly;
     result.claude5h = parsed.fiveHour;
-  }
-
-  // Also capture per-model lines like "Gemini 4 Carbon (High) ... 90%"
-  const lineRegex = /((?:Gemini|Claude|GPT)[^\n%]{2,40}?)\s+(\d{1,3}(?:\.\d+)?)\s*%/gi;
-  let m;
-  while ((m = lineRegex.exec(clean)) !== null) {
-    const mName = m[1].trim();
-    if (/Weekly|Hour|Limit|Models/i.test(mName)) continue;
-    result.models.push({ name: mName, remainingPct: Math.min(100, Number(m[2])) });
+    const cPct = parsed.weekly ? parsed.weekly.pct : (parsed.fiveHour ? parsed.fiveHour.pct : 100);
+    for (const mName of parsed.groupModels) {
+      result.models.push({ name: mName, remainingPct: cPct });
+    }
   }
 
   return result;
@@ -240,24 +261,27 @@ async function pollProfile(alias, profileHome, agyBin) {
     await sleep(4000);
   }
 
-  // Trigger `/usage` refresh inside tmux (costs 0 tokens, refreshes quota from Google backend)
-  try {
-    execFileSync('tmux', ['send-keys', '-t', sessionName, 'Escape']);
-    await sleep(300);
-    execFileSync('tmux', ['send-keys', '-t', sessionName, '/usage', 'Enter']);
-    await sleep(3500);
-  } catch {
-    return null;
-  }
-
   let paneText = '';
-  try {
-    paneText = execFileSync('tmux', ['capture-pane', '-p', '-t', sessionName, '-S', '-120'], {
-      encoding: 'utf8',
-    });
-    execFileSync('tmux', ['send-keys', '-t', sessionName, 'Escape']);
-  } catch {
-    paneText = '';
+  let fromPane = { email: '', geminiWeekly: null, gemini5h: null, claudeWeekly: null, claude5h: null, models: [] };
+
+  // Trigger `/usage` refresh inside tmux (costs 0 tokens, refreshes quota from Google backend)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      execFileSync('tmux', ['send-keys', '-t', sessionName, 'Escape']);
+      await sleep(300);
+      execFileSync('tmux', ['send-keys', '-t', sessionName, '/usage', 'Enter']);
+      await sleep(attempt === 0 ? 3500 : 4500);
+      paneText = execFileSync('tmux', ['capture-pane', '-p', '-t', sessionName, '-S', '-120'], {
+        encoding: 'utf8',
+      });
+      execFileSync('tmux', ['send-keys', '-t', sessionName, 'Escape']);
+      fromPane = parseUsagePaneText(paneText);
+      if (fromPane.geminiWeekly || fromPane.claudeWeekly || /sign in|authorization url|paste.*code/i.test(paneText)) {
+        break;
+      }
+    } catch {
+      return null;
+    }
   }
 
   const statusPath = path.join(profileHome, '.gemini', 'antigravity-cli', 'latest-status.json');
@@ -271,7 +295,6 @@ async function pollProfile(alias, profileHome, agyBin) {
   }
 
   const fromStatus = parseStatusLineJson(statusObj) || {};
-  const fromPane = parseUsagePaneText(paneText);
 
   const geminiWeekly = fromPane.geminiWeekly || fromStatus.geminiWeekly || { pct: 100, resetAt: null };
   const gemini5h = fromPane.gemini5h || fromStatus.gemini5h || { pct: 100, resetAt: null };
@@ -279,12 +302,12 @@ async function pollProfile(alias, profileHome, agyBin) {
   const claude5h = fromPane.claude5h || fromStatus.claude5h || { pct: 100, resetAt: null };
 
   // Detect if profile hasn't completed OAuth login yet
-  const unauthenticated = /sign in|authorization url|paste.*code/i.test(paneText) && !fromStatus.email;
+  const unauthenticated = /sign in|authorization url|paste.*code/i.test(paneText) && !fromPane.email && !fromStatus.email;
   if (unauthenticated) {
     return { alias, unauthenticated: true };
   }
 
-  const email = fromStatus.email || `${alias}@gmail.com`;
+  const email = fromPane.email || fromStatus.email || `${alias}@gmail.com`;
   const displayName = alias;
   const plan = fromStatus.plan || 'Google AI Pro';
   const avgPct = Math.round(((geminiWeekly.pct + gemini5h.pct + claudeWeekly.pct + claude5h.pct) / 4) * 10) / 10;
