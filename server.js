@@ -283,10 +283,16 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     },
   };
 
+  const resolvedEmail = process.env.AG_USER_EMAIL || ideProfile.email || 'local@antigravity.dev';
+  const resolvedName = process.env.AG_USER_NAME
+    || (process.env.AG_USER_EMAIL ? process.env.AG_USER_EMAIL.split('@')[0] : '')
+    || ideProfile.name
+    || 'Local Antigravity IDE';
+
   return {
     source: 'local-antigravity',
-    name: ideProfile.name || 'Local Antigravity IDE',
-    email: process.env.AG_USER_EMAIL || ideProfile.email || 'local@antigravity.dev',
+    name: resolvedName,
+    email: resolvedEmail,
     plan: ideProfile.plan || 'Pro Plan',
     max: maxTokens,
     used,

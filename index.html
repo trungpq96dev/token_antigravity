@@ -764,11 +764,11 @@
 
     function applyLiveDataToAccount(acc, live) {
       if (!live) return;
-      if (live.source === 'local-antigravity' || live.source === 'cloud-vault') {
+      if (acc.id === 'acc-local' && (live.source === 'local-antigravity' || live.source === 'cloud-vault')) {
         if (live.name) acc.name = live.name;
         if (live.email && live.email !== 'local@antigravity.dev') acc.email = live.email;
-        if (live.plan) acc.plan = live.plan;
       }
+      if (live.plan) acc.plan = live.plan;
       if (typeof live.max === 'number' && live.max > 0) acc.max = live.max;
       if (typeof live.remaining === 'number') acc.remaining = Math.max(0, live.remaining);
       if (typeof live.resetDays === 'number') acc.resetDays = live.resetDays;
@@ -1010,7 +1010,7 @@
       const name = nameInput || (vaultData && vaultData.name) || inferred.defaultName;
       const plan = (vaultData && vaultData.plan) || document.getElementById('inp-plan').value;
       const provider = vaultData ? 'cloud-vault' : inferred.provider;
-      const email = (vaultData && vaultData.email) || inferred.email;
+      const email = rawLogin.includes('@') ? rawLogin : ((vaultData && vaultData.email) || inferred.email);
       const apiKey = inferred.apiKey;
       const apiEndpoint = document.getElementById('inp-endpoint').value.trim() || inferred.apiEndpoint;
 
@@ -1188,49 +1188,38 @@
     });
 
     async function autoConnectLocalIdeOnBoot() {
-      const savedActive = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      if (accounts.length > 0) {
+        await syncActiveAccount(false);
+        return;
+      }
       const bridge = await fetchLocalBridge('/api/local-antigravity');
       if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
         const live = bridge.data;
-        let localAcc = accounts.find(a => a.id === 'acc-local');
-        if (!localAcc) {
-          localAcc = {
-            id: 'acc-local',
-            name: live.name || 'Antigravity IDE',
-            email: live.email || 'local@antigravity.dev',
-            plan: live.plan || 'Google AI Pro',
-            provider: 'local',
-            apiKey: '',
-            apiEndpoint: '',
-            remaining: live.remaining,
-            max: live.max,
-            resetDays: live.resetDays || 6,
-            quotaLimits: live.quotaLimits || null,
-            models: live.models || [],
-            history: live.history || []
-          };
-          accounts.unshift(localAcc);
-        } else {
-          applyLiveDataToAccount(localAcc, live);
-        }
-        if (!savedActive || savedActive === 'acc-local') {
-          activeId = localAcc.id;
-        } else {
-          await syncActiveAccount(false);
-          return;
-        }
+        const localAcc = {
+          id: 'acc-local',
+          name: live.name || 'Antigravity IDE',
+          email: live.email || 'local@antigravity.dev',
+          plan: live.plan || 'Google AI Pro',
+          provider: 'local',
+          apiKey: '',
+          apiEndpoint: '',
+          remaining: live.remaining,
+          max: live.max,
+          resetDays: live.resetDays || 6,
+          quotaLimits: live.quotaLimits || null,
+          models: live.models || [],
+          history: live.history || []
+        };
+        accounts.unshift(localAcc);
+        activeId = localAcc.id;
         persistAccounts();
         renderDashboard();
         const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         setSyncStatus(`Synced (${localAcc.email}) • ${timeStr}`, false, false);
         return;
       }
-      if (accounts.length === 0) {
-        setSyncStatus('Chưa đăng nhập — hãy thêm tài khoản', false, false);
-        openAddModal();
-        return;
-      }
-      syncActiveAccount(false);
+      setSyncStatus('Chưa đăng nhập — hãy thêm tài khoản', false, false);
+      openAddModal();
     }
 
     renderDashboard();

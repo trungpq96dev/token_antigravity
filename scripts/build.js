@@ -59,29 +59,48 @@ function buildEncryptedCloudVault() {
     return JSON.stringify({ version: 1, vaults: [], updatedAt: new Date().toISOString() }, null, 2);
   }
 
-  const keys = new Set();
-  const addKeyAndPrefix = (val) => {
-    const clean = String(val || '').trim().toLowerCase();
+  // Build per-account key -> { name, email } mapping so each login unlocks its own identity
+  const keyProfiles = new Map();
+  const registerIdentity = (passphrase, identityName, identityEmail) => {
+    const clean = String(passphrase || '').trim().toLowerCase();
     if (!clean || clean === 'local@antigravity.dev') return;
-    keys.add(clean);
-    if (clean.includes('@')) {
-      keys.add(clean.split('@')[0]);
+    keyProfiles.set(clean, { name: identityName, email: identityEmail });
+  };
+
+  const registerEmailAccount = (emailAddr, displayName) => {
+    const cleanEmail = String(emailAddr || '').trim().toLowerCase();
+    if (!cleanEmail || cleanEmail === 'local@antigravity.dev') return;
+    const label = displayName || cleanEmail.split('@')[0];
+    registerIdentity(cleanEmail, label, cleanEmail);
+    if (cleanEmail.includes('@')) {
+      registerIdentity(cleanEmail.split('@')[0], label, cleanEmail);
     }
   };
 
-  addKeyAndPrefix(telemetry.email);
-  addKeyAndPrefix(getGitConfigValue('user.email'));
-  addKeyAndPrefix(getGitConfigValue('user.name'));
+  const gitEmail = getGitConfigValue('user.email');
+  const gitName = getGitConfigValue('user.name');
+
+  // Register IDE email first, then Git/env accounts so user's explicit keys take precedence on prefix collisions
+  registerEmailAccount(telemetry.email, telemetry.name);
+  registerEmailAccount(gitEmail, gitName || (gitEmail ? gitEmail.split('@')[0] : ''));
+  if (gitName && gitEmail) {
+    registerIdentity(gitName, gitName, gitEmail);
+  }
   if (process.env.AG_VAULT_KEYS) {
-    for (const k of process.env.AG_VAULT_KEYS.split(',')) {
-      addKeyAndPrefix(k);
+    for (const rawKey of process.env.AG_VAULT_KEYS.split(',')) {
+      const k = rawKey.trim().toLowerCase();
+      if (!k) continue;
+      if (k.includes('@')) {
+        registerEmailAccount(k, k.split('@')[0]);
+      } else {
+        const matchedEmail = gitEmail || telemetry.email;
+        registerIdentity(k, k, matchedEmail);
+      }
     }
   }
 
-  const payload = {
+  const basePayload = {
     source: 'cloud-vault',
-    name: telemetry.name,
-    email: telemetry.email,
     plan: telemetry.plan,
     max: telemetry.max,
     used: telemetry.used,
@@ -96,7 +115,9 @@ function buildEncryptedCloudVault() {
     syncedAt: telemetry.syncedAt,
   };
 
-  const vaults = [...keys].map(k => encryptPayloadForKey(payload, k));
+  const vaults = [...keyProfiles.entries()].map(([passphrase, identity]) =>
+    encryptPayloadForKey({ ...basePayload, name: identity.name, email: identity.email }, passphrase)
+  );
   const vaultFile = JSON.stringify({
     version: 1,
     algorithm: 'PBKDF2-SHA256-AES-256-GCM',
