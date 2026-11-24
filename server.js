@@ -108,9 +108,73 @@ function inspectConversationDir(convDir) {
 }
 
 /**
- * Scan local ~/.gemini/antigravity data to calculate realistic token telemetry.
+ * Read active logged-in Antigravity IDE profile & model quota from local globalStorage (read-only).
+ * Never reads or returns secret tokens/keys.
+ */
+function readAntigravityIdeAuthStatus() {
+  const appDataDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  const vscdbPath = path.join(appDataDir, 'Antigravity', 'User', 'globalStorage', 'state.vscdb');
+  const appStoragePath = path.join(appDataDir, 'Antigravity', 'app_storage.json');
+
+  let name = '';
+  let email = '';
+  let plan = 'Pro Plan';
+  const models = [];
+
+  try {
+    if (fs.existsSync(vscdbPath)) {
+      const { DatabaseSync } = require('node:sqlite');
+      const db = new DatabaseSync(vscdbPath, { readOnly: true });
+      const row = db.prepare("SELECT value FROM ItemTable WHERE key = 'antigravityAuthStatus'").get();
+      db.close();
+      if (row && row.value) {
+        const auth = JSON.parse(row.value);
+        name = typeof auth.name === 'string' ? auth.name : '';
+        email = typeof auth.email === 'string' ? auth.email : '';
+        if (typeof auth.userStatusProtoBinaryBase64 === 'string') {
+          const buf = Buffer.from(auth.userStatusProtoBinaryBase64, 'base64');
+          const latin = buf.toString('latin1');
+          if (/Google AI Ultra/i.test(latin)) plan = 'Ultra Plan';
+          else if (/Google AI Pro/i.test(latin)) plan = 'Google AI Pro';
+
+          const modelRegex = /(Gemini [0-9.]+ [A-Za-z]+ \([A-Za-z]+\)|Claude [A-Za-z]+ [0-9.]+ \([A-Za-z]+\)|GPT-OSS [0-9]+B \([A-Za-z]+\))/g;
+          let m;
+          while ((m = modelRegex.exec(latin)) !== null) {
+            const slice = buf.subarray(m.index + m[1].length, m.index + m[1].length + 30);
+            const zIdx = slice.indexOf(0x7a);
+            if (zIdx !== -1 && slice[zIdx + 2] === 0x0d) {
+              const frac = slice.readFloatLE(zIdx + 3);
+              if (Number.isFinite(frac) && frac >= 0 && frac <= 1) {
+                models.push({ name: m[1], remainingPct: Math.round(frac * 1000) / 10 });
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Fallback below if sqlite cannot be opened
+  }
+
+  if (!email && fs.existsSync(appStoragePath)) {
+    try {
+      const storage = JSON.parse(fs.readFileSync(appStoragePath, 'utf8'));
+      if (typeof storage['agy.onboarding.lastLoginUsername'] === 'string') {
+        email = storage['agy.onboarding.lastLoginUsername'];
+      }
+    } catch {
+      // Ignore unreadable app_storage.json
+    }
+  }
+
+  return { name, email, plan, models };
+}
+
+/**
+ * Scan local ~/.gemini/antigravity data and IDE auth state to compute live telemetry.
  */
 function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
+  const ideProfile = readAntigravityIdeAuthStatus();
   const brainDir = path.join(AG_DATA_DIR, 'brain');
   const { keys: dayKeys, labels: trendLabels } = getLast7DayKeysAndLabels();
   const dailyTokenMap = Object.fromEntries(dayKeys.map(k => [k, 0]));
@@ -149,13 +213,19 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
 
   sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-  // Sum usage from the last 30 days (capped realistically for quota display if huge history exists)
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  // Sum usage from the last 7 days for realistic current-cycle remaining quota
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recentTokens = sessions
-    .filter(s => s.mtimeMs >= thirtyDaysAgo)
+    .filter(s => s.mtimeMs >= sevenDaysAgo)
     .reduce((sum, s) => sum + s.tokens, 0);
 
-  const used = recentTokens > 0 ? Math.min(maxTokens, recentTokens) : 579500;
+  const avgModelRemainingPct = ideProfile.models.length > 0
+    ? ideProfile.models.reduce((s, m) => s + m.remainingPct, 0) / ideProfile.models.length
+    : null;
+
+  const used = recentTokens > 0
+    ? Math.min(maxTokens, recentTokens)
+    : (avgModelRemainingPct !== null ? Math.round(maxTokens * (1 - avgModelRemainingPct / 100)) : 579500);
   const remaining = Math.max(0, maxTokens - used);
 
   const agentUsed = Math.round(used * 0.655);
@@ -185,9 +255,9 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
 
   return {
     source: 'local-antigravity',
-    name: 'Local Antigravity IDE',
-    email: process.env.AG_USER_EMAIL || 'local@antigravity.dev',
-    plan: 'Pro Plan',
+    name: ideProfile.name || 'Local Antigravity IDE',
+    email: process.env.AG_USER_EMAIL || ideProfile.email || 'local@antigravity.dev',
+    plan: ideProfile.plan || 'Pro Plan',
     max: maxTokens,
     used,
     remaining,
@@ -197,6 +267,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
       auto: autoUsed,
       chat: chatUsed,
     },
+    models: ideProfile.models,
     trend,
     trendLabels,
     dailyRawTokens: rawDaily,
@@ -207,13 +278,16 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
 }
 
 /**
- * Send JSON HTTP response.
+ * Send JSON HTTP response with CORS headers so github.io can talk to local bridge if running.
  */
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   });
   res.end(body);
 }
@@ -339,6 +413,15 @@ async function handleFetchUsage(body) {
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = urlObj.pathname;
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    });
+    return res.end();
+  }
 
   if (req.method === 'GET' && pathname === '/api/local-antigravity') {
     const maxParam = Number(urlObj.searchParams.get('max') || DEFAULT_MAX_TOKENS);
