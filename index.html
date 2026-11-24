@@ -246,6 +246,7 @@
                 <label class="block text-slate-400 mb-1">Nguồn dữ liệu</label>
                 <select id="inp-provider" onchange="onProviderChange()" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
                   <option value="auto">Tự động nhận diện</option>
+                  <option value="cloud-vault">Ubuntu Realtime / Cloud Sync</option>
                   <option value="local">Local Antigravity IDE</option>
                   <option value="openrouter">OpenRouter API</option>
                   <option value="gemini">Google Gemini API</option>
@@ -400,6 +401,9 @@
       if (acc && acc.liveEndpoint && acc.liveEndpoint.url) {
         return '⚡ Realtime Ubuntu';
       }
+      if (acc && !acc.quotaLimits && !(Number(acc.max) > 0) && (provider === 'local' || provider === 'cloud-vault')) {
+        return 'Chưa đồng bộ';
+      }
       const map = {
         'ubuntu-realtime': '⚡ Realtime Ubuntu',
         'cloud-vault': 'Cloud Sync',
@@ -435,13 +439,13 @@
         const cW = resolveLimitPct(acc.quotaLimits.claudeGpt.weekly);
         const c5 = resolveLimitPct(acc.quotaLimits.claudeGpt.fiveHour);
         const avg = Math.round(((gW + g5 + cW + c5) / 4) * 10) / 10;
-        return { hasLimits: true, gW, g5, cW, c5, avg };
+        return { hasLimits: true, hasAnyData: true, gW, g5, cW, c5, avg };
       }
       if (acc && Number(acc.max) > 0) {
         const pct = Math.round((Math.max(0, Number(acc.remaining) || 0) / Number(acc.max)) * 1000) / 10;
-        return { hasLimits: false, gW: pct, g5: pct, cW: pct, c5: pct, avg: pct };
+        return { hasLimits: false, hasAnyData: true, gW: pct, g5: pct, cW: pct, c5: pct, avg: pct };
       }
-      return { hasLimits: false, gW: 0, g5: 0, cW: 0, c5: 0, avg: 0 };
+      return { hasLimits: false, hasAnyData: false, gW: 0, g5: 0, cW: 0, c5: 0, avg: 0 };
     }
 
     function formatShortRefresh(resetAt) {
@@ -493,8 +497,11 @@
     function renderLimitCard(title, weekly, fiveHour) {
       const wPct = resolveLimitPct(weekly);
       const hPct = resolveLimitPct(fiveHour);
-      const wDesc = wPct >= 100 ? 'Weekly limit is at full 100%.' : formatRefreshCountdown(weekly.resetAt, 'weekly');
-      const hDesc = hPct >= 100 ? 'Five-hour limit is at full 100%.' : formatRefreshCountdown(fiveHour.resetAt, '5-hour');
+      const is5hDisabled = Boolean((fiveHour && fiveHour.disabled) || (wPct <= 0 && hPct <= 0));
+      const wDesc = wPct >= 100 ? 'Weekly limit is at full 100%.' : formatRefreshCountdown(weekly && weekly.resetAt, 'weekly');
+      const hDesc = is5hDisabled
+        ? 'Disabled: You have hit your weekly limit, the 5-hour limit does not currently apply.'
+        : (hPct >= 100 ? 'Five-hour limit is at full 100%.' : formatRefreshCountdown(fiveHour && fiveHour.resetAt, '5-hour'));
 
       return `
         <div class="space-y-2">
@@ -592,19 +599,24 @@
       document.getElementById('current-acc-email').textContent = acc.email;
       document.getElementById('provider-badge').textContent = getProviderLabel(acc.provider, acc);
 
-      const { hasLimits, gW, g5, cW, c5, avg } = getAccountPercentages(acc);
-      document.getElementById('overall-pct-val').textContent = `${avg.toFixed(avg % 1 === 0 ? 0 : 1)}%`;
-      document.getElementById('main-progress').style.width = `${avg.toFixed(1)}%`;
+      const { hasLimits, hasAnyData, gW, g5, cW, c5, avg } = getAccountPercentages(acc);
+      document.getElementById('overall-pct-val').textContent = hasAnyData
+        ? `${avg.toFixed(avg % 1 === 0 ? 0 : 1)}%`
+        : '--%';
+      document.getElementById('main-progress').style.width = hasAnyData ? `${avg.toFixed(1)}%` : '0%';
 
       if (hasLimits) {
         const gemAvg = Math.round((gW + g5) / 2);
         const claAvg = Math.round((cW + c5) / 2);
         document.getElementById('percent-summary').textContent = `Gemini: ${gW}% W / ${g5}% 5h (Avg ${gemAvg}%) • Claude/GPT: ${cW}% W / ${c5}% 5h (Avg ${claAvg}%)`;
         const next5h = acc.quotaLimits.gemini.fiveHour.resetAt || acc.quotaLimits.claudeGpt.fiveHour.resetAt;
-        document.getElementById('reset-summary').textContent = next5h ? `Next 5h refresh: ${formatShortRefresh(next5h)}` : 'All 5h limits full';
-      } else {
+        document.getElementById('reset-summary').textContent = next5h ? `Next refresh: ${formatShortRefresh(next5h)}` : 'All 5h limits full';
+      } else if (hasAnyData) {
         document.getElementById('percent-summary').textContent = `${avg}% remaining`;
         document.getElementById('reset-summary').textContent = acc.resetDays ? `Resets in ${acc.resetDays} days` : 'Next refresh: --';
+      } else {
+        document.getElementById('percent-summary').textContent = 'Chưa có dữ liệu đồng bộ từ Ubuntu / Cloud Vault';
+        document.getElementById('reset-summary').textContent = 'Next refresh: --';
       }
 
       const bar = document.getElementById('main-progress');
@@ -632,8 +644,8 @@
       }
       listEl.innerHTML = accounts.map(acc => {
         const isActive = acc.id === activeId;
-        const { hasLimits, gW, cW, avg } = getAccountPercentages(acc);
-        const pctLabel = hasLimits ? `Gemini ${gW}% • Claude ${cW}%` : `Còn ${avg}%`;
+        const { hasLimits, hasAnyData, gW, cW, avg } = getAccountPercentages(acc);
+        const pctLabel = hasLimits ? `Gemini ${gW}% • Claude ${cW}%` : (hasAnyData ? `Còn ${avg}%` : 'Chưa đồng bộ');
         return `
           <div class="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
             <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 min-w-0 text-left">
@@ -752,13 +764,28 @@
       return null;
     }
 
-    async function fetchFromUbuntuTunnel(acc, forceFresh = false) {
-      const ep = acc && acc.liveEndpoint;
+    function isLocalBrowserHost() {
+      const h = (location.hostname || '').toLowerCase();
+      return location.protocol === 'file:' || h === 'localhost' || h === '127.0.0.1';
+    }
+
+    function findSharedUbuntuEndpoint() {
+      for (const a of accounts) {
+        if (a && a.liveEndpoint && a.liveEndpoint.url && a.liveEndpoint.token) {
+          return a.liveEndpoint;
+        }
+      }
+      return null;
+    }
+
+    async function fetchFromUbuntuTunnel(acc, forceFresh = false, endpointOverride = null) {
+      const ep = endpointOverride || (acc && acc.liveEndpoint);
       if (!ep || !ep.url || !ep.token) return null;
       const controller = new AbortController();
       const timeoutMs = forceFresh ? 15000 : 6000;
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
+        const targetAlias = endpointOverride ? (acc.name || '') : (ep.alias || acc.name || '');
         const res = await fetch(`${ep.url.replace(/\/+$/, '')}/api/live-usage`, {
           method: 'POST',
           headers: {
@@ -766,7 +793,7 @@
             Authorization: `Bearer ${ep.token}`
           },
           body: JSON.stringify({
-            alias: ep.alias || acc.name || '',
+            alias: targetAlias,
             email: acc.email || '',
             fresh: Boolean(forceFresh)
           }),
@@ -776,8 +803,17 @@
         clearTimeout(timer);
         if (!res.ok) return null;
         const data = await res.json();
-        if (data && data.quotaLimits) return data;
-        return null;
+        if (!data || !data.quotaLimits) return null;
+        if (
+          acc.email &&
+          acc.email.includes('@') &&
+          acc.email !== 'local@antigravity.dev' &&
+          data.email &&
+          data.email.toLowerCase() !== acc.email.toLowerCase()
+        ) {
+          return null;
+        }
+        return data;
       } catch {
         clearTimeout(timer);
         return null;
@@ -789,17 +825,36 @@
       if (provider === 'manual') return null;
 
       if (provider === 'local' || provider === 'cloud-vault' || provider === 'ubuntu-realtime') {
-        // Method B (Realtime): Try direct Cloudflare Tunnel to Ubuntu server first
-        if (acc.liveEndpoint && acc.liveEndpoint.url && acc.liveEndpoint.token) {
-          const realtime = await fetchFromUbuntuTunnel(acc, manualTrigger);
-          if (realtime) return realtime;
+        // Method B (Realtime): Try direct Cloudflare Tunnel to Ubuntu server first (own or shared server endpoint)
+        const ep = (acc.liveEndpoint && acc.liveEndpoint.url && acc.liveEndpoint.token)
+          ? acc.liveEndpoint
+          : findSharedUbuntuEndpoint();
+        if (ep) {
+          const realtime = await fetchFromUbuntuTunnel(
+            acc,
+            manualTrigger,
+            acc.liveEndpoint && acc.liveEndpoint.url ? null : ep
+          );
+          if (realtime) {
+            if (!acc.liveEndpoint && realtime.liveEndpoint) acc.liveEndpoint = realtime.liveEndpoint;
+            return realtime;
+          }
         }
 
-        // Method A (Cloud Vault): Fetch encrypted vault from GitHub `quota-data` (also auto-discovers rotated tunnel URL!)
-        const vaultPass = acc.vaultKey || acc.email;
-        if (vaultPass && (provider === 'cloud-vault' || provider === 'ubuntu-realtime')) {
-          const unlocked = await unlockFromCloudVault(vaultPass);
+        // Method A (Cloud Vault): Always check encrypted GitHub `quota-data` branch (auto-discovers rotated tunnel URL)
+        const candidateKeys = [acc.vaultKey, acc.email, acc.name].filter(Boolean);
+        for (const keyCandidate of candidateKeys) {
+          const unlocked = await unlockFromCloudVault(keyCandidate);
           if (unlocked) {
+            if (
+              acc.email &&
+              acc.email.includes('@') &&
+              acc.email !== 'local@antigravity.dev' &&
+              unlocked.email &&
+              unlocked.email.toLowerCase() !== acc.email.toLowerCase()
+            ) {
+              continue;
+            }
             const newEp = unlocked.liveEndpoint;
             const prevUrl = acc.liveEndpoint ? acc.liveEndpoint.url : '';
             if (newEp && newEp.url && newEp.token && newEp.url !== prevUrl) {
@@ -813,21 +868,15 @@
           }
         }
 
-        const bridge = await fetchLocalBridge(`/api/local-antigravity`);
-        if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
-          return bridge.data;
-        }
-        if (vaultPass) {
-          const unlocked = await unlockFromCloudVault(vaultPass);
-          if (unlocked) {
-            if (unlocked.liveEndpoint && unlocked.liveEndpoint.url && unlocked.liveEndpoint.token) {
-              acc.liveEndpoint = unlocked.liveEndpoint;
-              if (manualTrigger) {
-                const retryRealtime = await fetchFromUbuntuTunnel(acc, true);
-                if (retryRealtime) return retryRealtime;
-              }
+        // Local IDE fallback: ONLY probe localhost when browsing locally (or explicitly forced local) and email matches
+        if (isLocalBrowserHost() || provider === 'local') {
+          const bridge = await fetchLocalBridge(`/api/local-antigravity`);
+          if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
+            const wantEmail = (acc.email || '').trim().toLowerCase();
+            const gotEmail = (bridge.data.email || '').trim().toLowerCase();
+            if (!wantEmail || wantEmail === 'local@antigravity.dev' || wantEmail === gotEmail) {
+              return bridge.data;
             }
-            return unlocked;
           }
         }
         return null;
@@ -911,7 +960,12 @@
           setSyncStatus(`${label} • ${timeStr}`, false, false);
         } else {
           if (manualTrigger) await new Promise(r => setTimeout(r, 300));
-          setSyncStatus(`Ready (${getProviderLabel(acc.provider, acc)})`, false, false);
+          const hasData = Boolean(acc.quotaLimits || Number(acc.max) > 0);
+          if (!hasData) {
+            setSyncStatus('Chưa tìm thấy dữ liệu trên Ubuntu — chạy: sudo ag-tracker update', false, true);
+          } else {
+            setSyncStatus(`Ready (${getProviderLabel(acc.provider, acc)})`, false, false);
+          }
         }
       } catch (err) {
         setSyncStatus(`Sync warning: ${err.message}`, false, true);
@@ -955,11 +1009,11 @@
           email = new URL(val).hostname;
           hint = '✓ Đã nhận diện: Custom Endpoint URL.';
         } else if (val.includes('@')) {
-          provider = 'local';
+          provider = 'cloud-vault';
           email = val;
-          hint = '✓ Đã nhận diện Email — tự động tìm dữ liệu % từ IDE / Cloud Vault.';
+          hint = '✓ Đã nhận diện Email — tự động đồng bộ từ Ubuntu Realtime / Cloud Vault.';
         } else {
-          provider = 'local';
+          provider = 'cloud-vault';
           email = val || 'local@antigravity.dev';
         }
       } else {
@@ -1117,8 +1171,18 @@
       if (submitBtn) submitBtn.disabled = true;
 
       let vaultData = null;
-      if (forcedProvider === 'auto' || forcedProvider === 'local') {
-        vaultData = await unlockFromCloudVault(rawLogin);
+      if (forcedProvider === 'auto' || forcedProvider === 'local' || forcedProvider === 'cloud-vault') {
+        const sharedEp = findSharedUbuntuEndpoint();
+        if (sharedEp) {
+          vaultData = await fetchFromUbuntuTunnel(
+            { name: document.getElementById('inp-name').value.trim(), email: rawLogin.includes('@') ? rawLogin : '' },
+            true,
+            sharedEp
+          );
+        }
+        if (!vaultData) {
+          vaultData = await unlockFromCloudVault(rawLogin);
+        }
       }
 
       if (submitBtn) submitBtn.disabled = false;
