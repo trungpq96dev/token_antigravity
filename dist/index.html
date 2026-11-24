@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antigravity — Token Usage Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #070a12;
+      color: #f8fafc;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hero-glow {
+      position: relative;
+      background:
+        radial-gradient(ellipse 65% 65% at 48% 105%, rgba(34, 211, 238, 0.22), transparent 65%),
+        radial-gradient(circle at 18% 20%, rgba(99, 102, 241, 0.24), transparent 55%),
+        radial-gradient(circle at 85% 25%, rgba(79, 70, 229, 0.12), transparent 50%),
+        rgba(15, 20, 35, 0.88);
+    }
+    .bar-pill {
+      background: linear-gradient(180deg, #22d3ee 0%, #6366f1 100%);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.35), 0 0 6px rgba(99, 102, 241, 0.35);
+    }
+    .progress-glow-normal {
+      background: linear-gradient(90deg, #6366f1 0%, #38bdf8 55%, #22d3ee 100%);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.65), 0 0 6px rgba(99, 102, 241, 0.4);
+    }
+    .progress-glow-low {
+      background: linear-gradient(90deg, #f43f5e 0%, #fb923c 100%);
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.55);
+    }
+    .task-glow-agent {
+      background: linear-gradient(90deg, #4f46e5 0%, #818cf8 100%);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.55);
+    }
+    .task-glow-auto {
+      background: linear-gradient(90deg, #06b6d4 0%, #22d3ee 100%);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.55);
+    }
+    .task-glow-chat {
+      background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+      box-shadow: 0 0 10px rgba(52, 211, 153, 0.55);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-6 bg-[radial-gradient(ellipse_at_top,_#131b31_0%,_#06080e_72%)]">
+
+  <!-- App Window Frame -->
+  <div class="w-full max-w-5xl bg-[#0d111c]/95 border border-slate-800/90 rounded-2xl shadow-[0_25px_75px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col sm:flex-row">
+
+    <!-- Left Slim Navigation Rail -->
+    <aside class="sm:w-16 bg-[#0a0d16] border-b sm:border-b-0 sm:border-r border-slate-800/80 p-3 flex sm:flex-col items-center justify-between sm:justify-start gap-5">
+      <!-- AG Logo -->
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/35 via-purple-500/20 to-cyan-400/30 border border-indigo-400/40 flex items-center justify-center shadow-[0_0_16px_rgba(99,102,241,0.35)]">
+        <span class="font-bold text-sm tracking-tight bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">AG</span>
+      </div>
+
+      <!-- Active Wallet/Quota Icon -->
+      <div class="relative flex items-center">
+        <span class="hidden sm:block absolute -left-3 w-1 h-6 rounded-r bg-indigo-400 shadow-[0_0_8px_#818cf8]"></span>
+        <button onclick="renderDashboard()" class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/35 text-indigo-300 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.2)]" title="Token Dashboard">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex flex-col">
+
+      <!-- Top Header Bar with Account Switcher -->
+      <header class="px-6 py-4 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="font-bold tracking-wider text-sm sm:text-base text-white">ANTIGRAVITY</span>
+          <span id="plan-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+            <span id="plan-name">Pro Plan</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
+          </span>
+          <span id="low-alert-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
+            Low Quota
+          </span>
+        </div>
+
+        <!-- Account Switcher Dropdown -->
+        <div class="relative" id="account-switcher-wrapper">
+          <button onclick="toggleAccountMenu()" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 text-xs sm:text-sm transition">
+            <span id="current-avatar" class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-400 text-[11px] font-bold text-slate-950 flex items-center justify-center">P</span>
+            <div class="text-left">
+              <div id="current-acc-name" class="font-medium text-slate-100 leading-tight">Personal Dev</div>
+              <div id="current-acc-email" class="text-[10px] text-slate-400 leading-tight">personal@antigravity.dev</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-400 ml-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+            </svg>
+          </button>
+
+          <!-- Dropdown List -->
+          <div id="account-menu" class="hidden absolute right-0 mt-2 w-72 rounded-xl bg-[#111625] border border-slate-700/90 shadow-2xl py-1.5 z-50">
+            <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Chuyển đổi tài khoản</span>
+              <span id="account-count" class="text-slate-500">0</span>
+            </div>
+            <div id="account-list" class="max-h-64 overflow-y-auto divide-y divide-slate-800/50"></div>
+            <div class="border-t border-slate-800 mt-1 pt-1 px-2 flex flex-col gap-0.5">
+              <button onclick="openAddModal()" class="w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium text-cyan-400 hover:bg-slate-800/80 flex items-center gap-2 transition">
+                <span>+ Thêm tài khoản mới</span>
+              </button>
+              <button onclick="openEditActiveModal()" class="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800/80 flex items-center gap-2 transition">
+                <span>⚙ Cấu hình API & hạn mức tài khoản hiện tại</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <main class="p-6 space-y-6">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <h1 class="text-xl sm:text-2xl font-semibold text-white tracking-tight">Token Usage Dashboard</h1>
+            <span id="provider-badge" class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800/90 text-slate-300 border border-slate-700/70">Manual</span>
+          </div>
+          <button onclick="syncActiveAccount(true)" class="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1.5 transition">
+            <svg id="sync-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span id="sync-btn-label">Làm mới</span>
+          </button>
+        </div>
+
+        <!-- Hero Token Card -->
+        <section class="hero-glow border border-indigo-500/25 rounded-2xl p-5 sm:p-6 shadow-inner">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div class="space-y-2 flex-1">
+              <div class="text-xs font-semibold uppercase tracking-widest text-slate-400">REMAINING TOKENS</div>
+              <div class="flex flex-wrap items-baseline gap-2.5">
+                <span id="remaining-val" class="text-4xl sm:text-5xl font-bold font-mono text-white tracking-tight">1,420,500</span>
+                <span id="max-val" class="text-sm sm:text-base font-mono text-slate-400">/ 2,000,000 max</span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-row md:flex-col gap-2.5 shrink-0">
+              <button onclick="openTopUpModal()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-medium shadow-[0_0_22px_rgba(79,70,229,0.5)] transition">
+                + Top-up
+              </button>
+              <button onclick="openAlertModal()" class="px-5 py-2.5 rounded-xl bg-slate-900/75 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs sm:text-sm font-medium transition">
+                Alert Settings
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="mt-5 space-y-2">
+            <div class="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden">
+              <div id="main-progress" class="h-full rounded-full progress-glow-normal transition-all duration-500" style="width: 71%;"></div>
+            </div>
+            <div class="flex justify-between text-xs text-slate-300">
+              <span id="percent-text">71.0% remaining</span>
+              <span id="reset-text" class="text-slate-400">Resets in 6 days</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bottom 2-Column Section -->
+        <section class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
+
+          <!-- Left: Usage Breakdown by Task -->
+          <div class="md:col-span-7 space-y-4">
+            <h2 class="text-sm font-medium text-slate-200">Usage Breakdown by Task</h2>
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-300">Agent &amp; Reasoning</span>
+                  <span id="task-agent-val" class="font-mono text-slate-300">380,000</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
+                  <div id="task-agent-bar" class="h-full task-glow-agent rounded-full transition-all duration-500" style="width: 68%;"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-300">Code Autocomplete</span>
+                  <span id="task-auto-val" class="font-mono text-slate-300">145,000</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
+                  <div id="task-auto-bar" class="h-full task-glow-auto rounded-full transition-all duration-500" style="width: 32%;"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-300">Quick Chat</span>
+                  <span id="task-chat-val" class="font-mono text-slate-300">54,500</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
+                  <div id="task-chat-bar" class="h-full task-glow-chat rounded-full transition-all duration-500" style="width: 14%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: 7-Day Usage Trend -->
+          <div class="md:col-span-5 md:border-l md:border-slate-800/80 md:pl-6 flex flex-col justify-between">
+            <h2 class="text-sm font-medium text-slate-200 mb-3">7-Day Usage Trend</h2>
+            <div id="trend-chart" class="grid grid-cols-7 gap-2.5 items-end h-32 pt-2">
+              <!-- Bars rendered by JS -->
+            </div>
+          </div>
+
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="px-6 py-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <div class="flex items-center gap-2">
+          <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="sync-status-text">Syncing in real-time</span>
+        </div>
+        <button onclick="openHistoryModal()" class="text-slate-300 hover:text-cyan-300 transition">
+          View transaction history →
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Thêm / Sửa Tài Khoản -->
+  <div id="add-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="w-full max-w-md bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 id="modal-acc-title" class="text-base font-semibold text-white">Thêm tài khoản Antigravity</h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <form onsubmit="saveAccountForm(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="inp-edit-id" value="" />
+        <div>
+          <label class="block text-slate-400 mb-1">Tên gợi nhớ</label>
+          <input id="inp-name" required placeholder="VD: Tài khoản Công ty" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Email / ID</label>
+            <input id="inp-email" required placeholder="dev@company.com" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Gói cước</label>
+            <select id="inp-plan" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+              <option value="Pro Plan">Pro Plan</option>
+              <option value="Ultra Plan">Ultra Plan</option>
+              <option value="Free Tier">Free Tier</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Nguồn dữ liệu Token</label>
+          <select id="inp-provider" onchange="onProviderChange()" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+            <option value="local">Local Antigravity IDE (~/.gemini/antigravity)</option>
+            <option value="openrouter">OpenRouter API (Real-time Credit/Usage)</option>
+            <option value="gemini">Google Gemini API Key</option>
+            <option value="custom">Custom Usage Endpoint (JSON)</option>
+            <option value="manual">Manual / Offline Quota</option>
+          </select>
+        </div>
+        <div id="api-key-group" class="hidden space-y-2">
+          <label class="block text-slate-400">API Key <span class="text-slate-500">(chỉ lưu trên localStorage trình duyệt)</span></label>
+          <div class="flex gap-2">
+            <input id="inp-apikey" type="password" autocomplete="off" placeholder="sk-... hoặc AIza..." class="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+            <button type="button" onclick="toggleApiKeyVisibility()" class="px-2.5 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Hiện</button>
+          </div>
+        </div>
+        <div id="endpoint-group" class="hidden">
+          <label class="block text-slate-400 mb-1">Custom API Endpoint URL</label>
+          <input id="inp-endpoint" type="url" placeholder="https://api.example.com/usage" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Token còn lại</label>
+            <input id="inp-rem" type="number" min="0" required value="1500000" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Tổng hạn mức (Max)</label>
+            <input id="inp-max" type="number" min="1" required value="2000000" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" id="btn-delete-acc" onclick="deleteEditingAccount()" class="hidden px-3 py-2 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30">Xóa tài khoản</button>
+          <div class="flex justify-end gap-2 ml-auto">
+            <button type="button" onclick="closeAddModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Hủy</button>
+            <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">Lưu tài khoản</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Top-up -->
+  <div id="topup-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="w-full max-w-sm bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-white">Nạp thêm Token (+ Top-up)</h3>
+        <button onclick="closeTopUpModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-xs">
+        <button type="button" onclick="applyTopUp(250000)" class="py-2 rounded-lg bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 font-mono text-cyan-300 transition">+250K</button>
+        <button type="button" onclick="applyTopUp(500000)" class="py-2 rounded-lg bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 font-mono text-cyan-300 transition">+500K</button>
+        <button type="button" onclick="applyTopUp(1000000)" class="py-2 rounded-lg bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 font-mono text-cyan-300 transition">+1M</button>
+      </div>
+      <form onsubmit="submitCustomTopUp(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Hoặc nhập số token tùy chỉnh</label>
+          <input id="inp-topup-amount" type="number" min="1000" step="1000" value="250000" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeTopUpModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Đóng</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">Xác nhận nạp</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Alert Settings -->
+  <div id="alert-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="w-full max-w-sm bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-white">Alert Settings</h3>
+        <button onclick="closeAlertModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <form onsubmit="saveAlertSettings(event)" class="space-y-4 text-xs">
+        <div>
+          <div class="flex justify-between text-slate-300 mb-2">
+            <span>Ngưỡng cảnh báo token thấp</span>
+            <span id="alert-threshold-label" class="font-mono text-cyan-300 font-semibold">20%</span>
+          </div>
+          <input id="inp-alert-threshold" type="range" min="5" max="50" step="5" value="20" oninput="document.getElementById('alert-threshold-label').textContent = this.value + '%'" class="w-full accent-cyan-400" />
+          <p class="text-[11px] text-slate-400 mt-1">Thanh tiến trình sẽ chuyển sang màu cảnh báo cam-đỏ khi token còn lại thấp hơn ngưỡng này.</p>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeAlertModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Hủy</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">Lưu cài đặt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Transaction History -->
+  <div id="history-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="w-full max-w-lg bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-white">Transaction &amp; Usage History</h3>
+          <p id="history-acc-subtitle" class="text-[11px] text-slate-400">Personal Dev</p>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div id="history-list" class="max-h-72 overflow-y-auto divide-y divide-slate-800/70 text-xs"></div>
+      <div class="flex items-center justify-between pt-1">
+        <button type="button" onclick="exportAccountHistory()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-medium transition">Export JSON</button>
+        <button type="button" onclick="closeHistoryModal()" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_ACCOUNTS_KEY = 'ag_accounts';
+    const STORAGE_ACTIVE_KEY = 'ag_active_id';
+    const STORAGE_THRESHOLD_KEY = 'ag_alert_threshold';
+
+    const defaultAccounts = [
+      {
+        id: 'acc-1',
+        name: 'Personal Dev',
+        email: 'personal@antigravity.dev',
+        plan: 'Pro Plan',
+        provider: 'manual',
+        apiKey: '',
+        apiEndpoint: '',
+        remaining: 1420500,
+        max: 2000000,
+        resetDays: 6,
+        tasks: { agent: 380000, auto: 145000, chat: 54500 },
+        trend: [55, 78, 46, 62, 28, 52, 85],
+        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+        history: [
+          { id: 'tx-1', title: 'Agent Refactor Session', taskType: 'Agent & Reasoning', delta: -142000, timestamp: new Date(Date.now() - 3600 * 1000).toISOString(), source: 'Workspace' },
+          { id: 'tx-2', title: 'Inline Code Completion', taskType: 'Code Autocomplete', delta: -48500, timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), source: 'IDE' },
+          { id: 'tx-3', title: 'Monthly Quota Allocation', taskType: 'Top-up', delta: 2000000, timestamp: new Date(Date.now() - 24 * 86400 * 1000).toISOString(), source: 'Billing' }
+        ]
+      },
+      {
+        id: 'acc-local',
+        name: 'Local Antigravity IDE',
+        email: 'phamquangtrung962196@gmail.com',
+        plan: 'Pro Plan',
+        provider: 'local',
+        apiKey: '',
+        apiEndpoint: '',
+        remaining: 1420500,
+        max: 2000000,
+        resetDays: 6,
+        tasks: { agent: 380000, auto: 145000, chat: 54500 },
+        trend: [55, 78, 46, 62, 28, 52, 85],
+        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+        history: []
+      },
+      {
+        id: 'acc-2',
+        name: 'Team Production',
+        email: 'team@startup.io',
+        plan: 'Ultra Plan',
+        provider: 'manual',
+        apiKey: '',
+        apiEndpoint: '',
+        remaining: 7850000,
+        max: 10000000,
+        resetDays: 14,
+        tasks: { agent: 1520000, auto: 480000, chat: 150000 },
+        trend: [70, 65, 82, 90, 40, 75, 68],
+        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+        history: [
+          { id: 'tx-21', title: 'Multi-Agent Code Review', taskType: 'Agent & Reasoning', delta: -620000, timestamp: new Date(Date.now() - 7200 * 1000).toISOString(), source: 'CI Pipeline' }
+        ]
+      },
+      {
+        id: 'acc-3',
+        name: 'Backup Sandbox',
+        email: 'test02@gmail.com',
+        plan: 'Free Tier',
+        provider: 'manual',
+        apiKey: '',
+        apiEndpoint: '',
+        remaining: 42000,
+        max: 250000,
+        resetDays: 2,
+        tasks: { agent: 140000, auto: 48000, chat: 20000 },
+        trend: [90, 80, 75, 60, 45, 30, 18],
+        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+        history: [
+          { id: 'tx-31', title: 'Sandbox Prompt Test', taskType: 'Quick Chat', delta: -12000, timestamp: new Date(Date.now() - 10800 * 1000).toISOString(), source: 'Sandbox' }
+        ]
+      }
+    ];
+
+    function loadStoredAccounts() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_ACCOUNTS_KEY));
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // Ignore corrupted localStorage
+      }
+      return structuredClone(defaultAccounts);
+    }
+
+    let accounts = loadStoredAccounts();
+    let activeId = localStorage.getItem(STORAGE_ACTIVE_KEY) || accounts[0].id;
+    let alertThreshold = Number(localStorage.getItem(STORAGE_THRESHOLD_KEY) || 20);
+
+    function persistAccounts() {
+      localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(accounts));
+      localStorage.setItem(STORAGE_ACTIVE_KEY, activeId);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatNum(n) {
+      return Number(n || 0).toLocaleString('en-US');
+    }
+
+    function getProviderLabel(provider) {
+      const map = {
+        local: 'Local IDE Sync',
+        openrouter: 'OpenRouter API',
+        gemini: 'Gemini API',
+        custom: 'Custom API',
+        manual: 'Manual'
+      };
+      return map[provider] || 'Manual';
+    }
+
+    function getActiveAccount() {
+      let acc = accounts.find(a => a.id === activeId);
+      if (!acc) {
+        acc = accounts[0];
+        activeId = acc.id;
+      }
+      return acc;
+    }
+
+    function renderDashboard() {
+      const acc = getActiveAccount();
+      persistAccounts();
+
+      document.getElementById('plan-name').textContent = acc.plan || 'Pro Plan';
+      document.getElementById('current-avatar').textContent = (acc.name || 'A').charAt(0).toUpperCase();
+      document.getElementById('current-acc-name').textContent = acc.name;
+      document.getElementById('current-acc-email').textContent = acc.email;
+      document.getElementById('provider-badge').textContent = getProviderLabel(acc.provider);
+
+      const maxVal = Math.max(1, Number(acc.max) || 1);
+      const remVal = Math.max(0, Number(acc.remaining) || 0);
+      const pct = Math.max(0, Math.min(100, (remVal / maxVal) * 100));
+
+      document.getElementById('remaining-val').textContent = formatNum(remVal);
+      document.getElementById('max-val').textContent = `/ ${formatNum(maxVal)} max`;
+      document.getElementById('main-progress').style.width = `${pct.toFixed(1)}%`;
+      document.getElementById('percent-text').textContent = `${pct.toFixed(1)}% remaining`;
+      document.getElementById('reset-text').textContent = `Resets in ${acc.resetDays || 6} days`;
+
+      const bar = document.getElementById('main-progress');
+      const alertPill = document.getElementById('low-alert-pill');
+      if (pct < alertThreshold) {
+        bar.className = 'h-full rounded-full progress-glow-low transition-all duration-500';
+        alertPill.classList.remove('hidden');
+        alertPill.textContent = `< ${alertThreshold}% Alert`;
+      } else {
+        bar.className = 'h-full rounded-full progress-glow-normal transition-all duration-500';
+        alertPill.classList.add('hidden');
+      }
+
+      const tasks = acc.tasks || { agent: 0, auto: 0, chat: 0 };
+      const totalUsed = Math.max(1, Number(tasks.agent) + Number(tasks.auto) + Number(tasks.chat));
+      document.getElementById('task-agent-val').textContent = formatNum(tasks.agent);
+      document.getElementById('task-auto-val').textContent = formatNum(tasks.auto);
+      document.getElementById('task-chat-val').textContent = formatNum(tasks.chat);
+
+      document.getElementById('task-agent-bar').style.width = `${Math.round((tasks.agent / totalUsed) * 100)}%`;
+      document.getElementById('task-auto-bar').style.width = `${Math.round((tasks.auto / totalUsed) * 100)}%`;
+      document.getElementById('task-chat-bar').style.width = `${Math.round((tasks.chat / totalUsed) * 100)}%`;
+
+      const labels = Array.isArray(acc.trendLabels) && acc.trendLabels.length === 7
+        ? acc.trendLabels
+        : ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'];
+      const trendValues = Array.isArray(acc.trend) && acc.trend.length === 7
+        ? acc.trend
+        : [55, 78, 46, 62, 28, 52, 85];
+
+      const chartEl = document.getElementById('trend-chart');
+      chartEl.innerHTML = trendValues.map((val, idx) => {
+        const isToday = idx === 6;
+        const safeVal = Math.max(8, Math.min(100, Number(val) || 0));
+        return `
+          <div class="flex flex-col items-center gap-2 h-full justify-end group" title="${escapeHtml(labels[idx])}: ${safeVal}% intensity">
+            <div class="w-3 sm:w-3.5 h-24 bg-slate-800/60 rounded-full flex items-end p-0.5">
+              <div class="w-full rounded-full bar-pill transition-all duration-500 group-hover:brightness-125" style="height: ${safeVal}%;"></div>
+            </div>
+            <span class="text-[10px] ${isToday ? 'text-cyan-300 font-semibold' : 'text-slate-400'}">${escapeHtml(labels[idx])}</span>
+          </div>
+        `;
+      }).join('');
+
+      renderAccountMenu();
+    }
+
+    function renderAccountMenu() {
+      const listEl = document.getElementById('account-list');
+      document.getElementById('account-count').textContent = `${accounts.length} accounts`;
+      listEl.innerHTML = accounts.map(acc => {
+        const isActive = acc.id === activeId;
+        const pct = Math.round((acc.remaining / Math.max(1, acc.max)) * 100);
+        return `
+          <div class="flex items-center justify-between px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
+            <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 text-left">
+              <div class="text-xs font-medium ${isActive ? 'text-cyan-300' : 'text-slate-200'}">${escapeHtml(acc.name)}</div>
+              <div class="text-[10px] text-slate-400">${escapeHtml(acc.plan)} • Còn ${pct}% • ${escapeHtml(getProviderLabel(acc.provider))}</div>
+            </button>
+            <div class="flex items-center gap-2 ml-2">
+              <button onclick="openEditModal('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700/60" title="Chỉnh sửa">✎</button>
+              ${isActive ? '<span class="text-cyan-400 text-xs font-bold">✓</span>' : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setSyncStatus(text, isBusy = false, isError = false) {
+      const statusEl = document.getElementById('sync-status-text');
+      const dotEl = document.getElementById('sync-dot');
+      const icon = document.getElementById('sync-icon');
+      statusEl.textContent = text;
+      if (isBusy) {
+        icon.classList.add('animate-spin');
+      } else {
+        icon.classList.remove('animate-spin');
+      }
+      dotEl.className = `w-2 h-2 rounded-full ${isError ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`;
+    }
+
+    /**
+     * Fetch live token usage from local server or external provider API.
+     */
+    async function fetchRealAccountData(acc) {
+      const provider = acc.provider || 'manual';
+      if (provider === 'manual') return null;
+
+      if (provider === 'local') {
+        try {
+          const res = await fetch(`/api/local-antigravity?max=${encodeURIComponent(acc.max)}`);
+          if (res.ok) return await res.json();
+        } catch {
+          // Fallback for static hosting
+        }
+        const fallback = await fetch('./api-fallback.json').catch(() => null);
+        if (fallback && fallback.ok) return await fallback.json();
+        return null;
+      }
+
+      // Try server proxy first so CORS & headers are handled cleanly
+      try {
+        const proxyRes = await fetch('/api/fetch-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider,
+            apiKey: acc.apiKey || '',
+            apiEndpoint: acc.apiEndpoint || '',
+            maxTokens: acc.max
+          })
+        });
+        if (proxyRes.ok) return await proxyRes.json();
+        if (proxyRes.status === 400) {
+          const errJson = await proxyRes.json().catch(() => ({}));
+          throw new Error(errJson.error || 'API sync error');
+        }
+      } catch (err) {
+        if (err.message && !err.message.includes('Failed to fetch')) {
+          throw err;
+        }
+      }
+
+      // Direct browser fallback on static deployments (Vercel / Netlify / GitHub Pages)
+      if (provider === 'openrouter' && acc.apiKey) {
+        const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { Authorization: `Bearer ${acc.apiKey}` }
+        });
+        if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
+        const json = await res.json();
+        const data = json.data || {};
+        const limitUsd = typeof data.limit === 'number' && data.limit > 0 ? data.limit : 10;
+        const usageUsd = typeof data.usage === 'number' ? data.usage : 0;
+        const ratioRemaining = Math.max(0, Math.min(1, (limitUsd - usageUsd) / limitUsd));
+        const remaining = Math.round(acc.max * ratioRemaining);
+        const used = Math.max(0, acc.max - remaining);
+        return {
+          max: acc.max,
+          remaining,
+          tasks: {
+            agent: Math.round(used * 0.65),
+            auto: Math.round(used * 0.25),
+            chat: Math.max(0, used - Math.round(used * 0.65) - Math.round(used * 0.25))
+          },
+          syncedAt: new Date().toISOString()
+        };
+      }
+
+      if (provider === 'custom' && acc.apiEndpoint) {
+        const headers = { Accept: 'application/json' };
+        if (acc.apiKey) headers.Authorization = `Bearer ${acc.apiKey}`;
+        const res = await fetch(acc.apiEndpoint, { headers });
+        if (!res.ok) throw new Error(`Custom API HTTP ${res.status}`);
+        return await res.json();
+      }
+
+      return null;
+    }
+
+    async function syncActiveAccount(manualTrigger = false) {
+      const acc = getActiveAccount();
+      setSyncStatus('Syncing...', true, false);
+      try {
+        const live = await fetchRealAccountData(acc);
+        if (live) {
+          if (typeof live.max === 'number' && live.max > 0) acc.max = live.max;
+          if (typeof live.remaining === 'number') acc.remaining = Math.max(0, live.remaining);
+          if (typeof live.resetDays === 'number') acc.resetDays = live.resetDays;
+          if (live.tasks) acc.tasks = live.tasks;
+          if (Array.isArray(live.trend) && live.trend.length === 7) acc.trend = live.trend;
+          if (Array.isArray(live.trendLabels) && live.trendLabels.length === 7) acc.trendLabels = live.trendLabels;
+          if (Array.isArray(live.history) && live.history.length > 0) acc.history = live.history;
+          persistAccounts();
+          renderDashboard();
+          const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          setSyncStatus(`Synced (${getProviderLabel(acc.provider)}) • ${timeStr}`, false, false);
+        } else {
+          if (manualTrigger) {
+            await new Promise(r => setTimeout(r, 350));
+          }
+          setSyncStatus('Syncing in real-time', false, false);
+        }
+      } catch (err) {
+        setSyncStatus(`Sync warning: ${err.message}`, false, true);
+      }
+    }
+
+    function toggleAccountMenu() {
+      document.getElementById('account-menu').classList.toggle('hidden');
+    }
+
+    function switchAccount(id) {
+      activeId = id;
+      document.getElementById('account-menu').classList.add('hidden');
+      renderDashboard();
+      syncActiveAccount(false);
+    }
+
+    function onProviderChange() {
+      const provider = document.getElementById('inp-provider').value;
+      const keyGroup = document.getElementById('api-key-group');
+      const epGroup = document.getElementById('endpoint-group');
+      keyGroup.classList.toggle('hidden', provider === 'manual' || provider === 'local');
+      epGroup.classList.toggle('hidden', provider !== 'custom');
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('inp-apikey');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function openAddModal() {
+      document.getElementById('account-menu').classList.add('hidden');
+      document.getElementById('modal-acc-title').textContent = 'Thêm tài khoản Antigravity';
+      document.getElementById('inp-edit-id').value = '';
+      document.getElementById('inp-name').value = '';
+      document.getElementById('inp-email').value = '';
+      document.getElementById('inp-plan').value = 'Pro Plan';
+      document.getElementById('inp-provider').value = 'local';
+      document.getElementById('inp-apikey').value = '';
+      document.getElementById('inp-endpoint').value = '';
+      document.getElementById('inp-rem').value = '1500000';
+      document.getElementById('inp-max').value = '2000000';
+      document.getElementById('btn-delete-acc').classList.add('hidden');
+      onProviderChange();
+      document.getElementById('add-modal').classList.remove('hidden');
+    }
+
+    function openEditActiveModal() {
+      openEditModal(activeId);
+    }
+
+    function openEditModal(id) {
+      const acc = accounts.find(a => a.id === id);
+      if (!acc) return;
+      document.getElementById('account-menu').classList.add('hidden');
+      document.getElementById('modal-acc-title').textContent = 'Cập nhật tài khoản';
+      document.getElementById('inp-edit-id').value = acc.id;
+      document.getElementById('inp-name').value = acc.name;
+      document.getElementById('inp-email').value = acc.email;
+      document.getElementById('inp-plan').value = acc.plan;
+      document.getElementById('inp-provider').value = acc.provider || 'manual';
+      document.getElementById('inp-apikey').value = acc.apiKey || '';
+      document.getElementById('inp-endpoint').value = acc.apiEndpoint || '';
+      document.getElementById('inp-rem').value = acc.remaining;
+      document.getElementById('inp-max').value = acc.max;
+      document.getElementById('btn-delete-acc').classList.toggle('hidden', accounts.length <= 1);
+      onProviderChange();
+      document.getElementById('add-modal').classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-modal').classList.add('hidden');
+    }
+
+    function saveAccountForm(e) {
+      e.preventDefault();
+      const editId = document.getElementById('inp-edit-id').value;
+      const name = document.getElementById('inp-name').value.trim();
+      const email = document.getElementById('inp-email').value.trim();
+      const plan = document.getElementById('inp-plan').value;
+      const provider = document.getElementById('inp-provider').value;
+      const apiKey = document.getElementById('inp-apikey').value.trim();
+      const apiEndpoint = document.getElementById('inp-endpoint').value.trim();
+      const max = Math.max(1, parseInt(document.getElementById('inp-max').value, 10) || 2000000);
+      const remaining = Math.max(0, Math.min(max, parseInt(document.getElementById('inp-rem').value, 10) || 0));
+      const used = Math.max(0, max - remaining);
+
+      if (editId) {
+        const existing = accounts.find(a => a.id === editId);
+        if (existing) {
+          existing.name = name;
+          existing.email = email;
+          existing.plan = plan;
+          existing.provider = provider;
+          existing.apiKey = apiKey;
+          existing.apiEndpoint = apiEndpoint;
+          existing.remaining = remaining;
+          existing.max = max;
+          if (provider === 'manual') {
+            existing.tasks = {
+              agent: Math.round(used * 0.65),
+              auto: Math.round(used * 0.25),
+              chat: Math.max(0, used - Math.round(used * 0.65) - Math.round(used * 0.25))
+            };
+          }
+          activeId = existing.id;
+        }
+      } else {
+        const newAcc = {
+          id: 'acc-' + Date.now(),
+          name,
+          email,
+          plan,
+          provider,
+          apiKey,
+          apiEndpoint,
+          remaining,
+          max,
+          resetDays: 30,
+          tasks: {
+            agent: Math.round(used * 0.65),
+            auto: Math.round(used * 0.25),
+            chat: Math.max(0, used - Math.round(used * 0.65) - Math.round(used * 0.25))
+          },
+          trend: [30, 45, 50, 40, 60, 55, 70],
+          trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
+          history: [
+            { id: 'tx-' + Date.now(), title: 'Account Initialized', taskType: 'Top-up', delta: remaining, timestamp: new Date().toISOString(), source: getProviderLabel(provider) }
+          ]
+        };
+        accounts.push(newAcc);
+        activeId = newAcc.id;
+      }
+
+      persistAccounts();
+      closeAddModal();
+      renderDashboard();
+      syncActiveAccount(false);
+    }
+
+    function deleteEditingAccount() {
+      const editId = document.getElementById('inp-edit-id').value;
+      if (!editId || accounts.length <= 1) return;
+      accounts = accounts.filter(a => a.id !== editId);
+      if (activeId === editId) activeId = accounts[0].id;
+      persistAccounts();
+      closeAddModal();
+      renderDashboard();
+    }
+
+    function openTopUpModal() {
+      document.getElementById('topup-modal').classList.remove('hidden');
+    }
+
+    function closeTopUpModal() {
+      document.getElementById('topup-modal').classList.add('hidden');
+    }
+
+    function applyTopUp(amount) {
+      const acc = getActiveAccount();
+      const added = Math.max(0, Number(amount) || 0);
+      if (acc.remaining + added > acc.max) {
+        acc.max = acc.remaining + added;
+      }
+      acc.remaining += added;
+      acc.history = Array.isArray(acc.history) ? acc.history : [];
+      acc.history.unshift({
+        id: 'tx-topup-' + Date.now(),
+        title: 'Manual Token Top-up',
+        taskType: 'Top-up',
+        delta: added,
+        timestamp: new Date().toISOString(),
+        source: 'Dashboard'
+      });
+      persistAccounts();
+      closeTopUpModal();
+      renderDashboard();
+    }
+
+    function submitCustomTopUp(e) {
+      e.preventDefault();
+      const amount = parseInt(document.getElementById('inp-topup-amount').value, 10);
+      applyTopUp(amount);
+    }
+
+    function openAlertModal() {
+      document.getElementById('inp-alert-threshold').value = alertThreshold;
+      document.getElementById('alert-threshold-label').textContent = `${alertThreshold}%`;
+      document.getElementById('alert-modal').classList.remove('hidden');
+    }
+
+    function closeAlertModal() {
+      document.getElementById('alert-modal').classList.add('hidden');
+    }
+
+    function saveAlertSettings(e) {
+      e.preventDefault();
+      alertThreshold = Number(document.getElementById('inp-alert-threshold').value || 20);
+      localStorage.setItem(STORAGE_THRESHOLD_KEY, String(alertThreshold));
+      closeAlertModal();
+      renderDashboard();
+    }
+
+    function openHistoryModal() {
+      const acc = getActiveAccount();
+      document.getElementById('history-acc-subtitle').textContent = `${acc.name} (${acc.email})`;
+      const list = Array.isArray(acc.history) ? acc.history : [];
+      const container = document.getElementById('history-list');
+
+      if (list.length === 0) {
+        container.innerHTML = '<div class="py-8 text-center text-slate-400">Chưa có lịch sử giao dịch cho tài khoản này.</div>';
+      } else {
+        container.innerHTML = list.map(item => {
+          const isPositive = Number(item.delta) >= 0;
+          const deltaText = `${isPositive ? '+' : ''}${formatNum(item.delta)}`;
+          const dateText = new Date(item.timestamp).toLocaleString('vi-VN');
+          return `
+            <div class="py-2.5 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-slate-200 font-medium">${escapeHtml(item.title)}</div>
+                <div class="text-[11px] text-slate-400">${escapeHtml(item.taskType)} • ${escapeHtml(item.source || 'IDE')} • ${escapeHtml(dateText)}</div>
+              </div>
+              <span class="font-mono font-semibold ${isPositive ? 'text-emerald-400' : 'text-cyan-300'}">${deltaText}</span>
+            </div>
+          `;
+        }).join('');
+      }
+      document.getElementById('history-modal').classList.remove('hidden');
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('history-modal').classList.add('hidden');
+    }
+
+    function exportAccountHistory() {
+      const acc = getActiveAccount();
+      const exportData = {
+        name: acc.name,
+        email: acc.email,
+        plan: acc.plan,
+        remaining: acc.remaining,
+        max: acc.max,
+        tasks: acc.tasks,
+        history: acc.history || [],
+        exportedAt: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `antigravity-usage-${acc.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('account-switcher-wrapper');
+      if (!wrapper.contains(e.target)) {
+        document.getElementById('account-menu').classList.add('hidden');
+      }
+    });
+
+    renderDashboard();
+    syncActiveAccount(false);
+  </script>
+</body>
+</html>
