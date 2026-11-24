@@ -36,7 +36,7 @@ npm run preview
   - **Local Antigravity IDE**: Tự động đọc từ thư mục `~/.gemini/antigravity` khi chạy `npm start`.
   - **OpenRouter API / Google Gemini API / Custom Endpoint**: Nhập API Key trực tiếp trên giao diện; key chỉ được lưu trong `localStorage` của trình duyệt, không hardcode lên mã nguồn hay Git.
 
-## Đẩy code lên GitHub & Deploy
+## Đẩy code lên GitHub & Build tự động trên GitHub Pages
 ```bash
 git init
 git add .
@@ -45,4 +45,11 @@ git branch -M main
 git remote add origin https://github.com/trungpq96dev/token_antigravity.git
 git push -u origin main
 ```
-Sau đó deploy thư mục `dist/` (hoặc kết nối trực tiếp repo GitHub) lên **Vercel**, **Netlify**, hoặc **Cloudflare Pages**.
+
+### Tự động build & Public lên GitHub Pages (`trungpq96dev.github.io/token_antigravity/`)
+Repo đã có sẵn GitHub Actions workflow tại `.github/workflows/deploy-pages.yml`:
+1. Mỗi lần `git push` lên nhánh `main`, GitHub Actions tự động chạy `npm run build` để đóng gói bản sạch vào `dist/` (không chứa email cá nhân, đường dẫn local hay API key) và đẩy lên nhánh `gh-pages`.
+2. Trên GitHub vào **Settings → Pages → Source: Deploy from a branch**, chọn nhánh **`gh-pages`** (thư mục `/ (root)`) và bấm **Save**.
+3. Sau khoảng 30 giây, trang web sẽ chạy công khai tại `https://trungpq96dev.github.io/token_antigravity/`.
+
+> Ngoài ra vẫn hỗ trợ deploy trực tiếp thư mục `dist/` lên **Vercel**, **Netlify**, hoặc **Cloudflare Pages**.
