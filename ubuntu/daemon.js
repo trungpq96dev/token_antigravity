@@ -128,9 +128,9 @@ function ensureTmuxSession(alias, profileHome, agyBin) {
         '-s',
         sessionName,
         '-x',
-        '160',
+        '220',
         '-y',
-        '45',
+        '50',
         `HOME="${profileHome}" "${agyBin}"`,
       ], { stdio: 'ignore' });
       return { sessionName, justStarted: true };
@@ -204,16 +204,28 @@ function parseUsagePaneText(paneText) {
       weeklyPart,
       /Weekly\s+Limit\s+Remaining[\s\S]{0,160}?(\d{1,3}(?:\.\d+)?)\s*%/i
     );
-    const fiveHour = parseSubLimit(
+    let fiveHour = parseSubLimit(
       fivePart,
       /(?:Five[\s-]Hour|5[\s-]hour)\s+Limit\s+Remaining[\s\S]{0,160}?(\d{1,3}(?:\.\d+)?)\s*%/i
     );
+    if (
+      !fiveHour &&
+      (/(?:Five[\s-]Hour|5[\s-]hour)\s+Limit\s+Remaining[\s\S]{0,160}?Disabled\b/i.test(fivePart) ||
+        (weekly && weekly.pct <= 0))
+    ) {
+      fiveHour = {
+        pct: 0,
+        resetAt: weekly ? weekly.resetAt : null,
+        disabled: true,
+      };
+    }
     const groupModels = [];
     const gmMatch = block.match(/Models\s+within\s+this\s+group:\s*([^\r\n]+)/i);
     if (gmMatch) {
       for (const rawName of gmMatch[1].split(',')) {
         const trimmed = rawName.trim().replace(/\.+$/, '');
-        if (trimmed.length >= 3 && !trimmed.endsWith('Orch')) {
+        const unbalancedParen = trimmed.includes('(') && !trimmed.includes(')');
+        if (trimmed.length >= 3 && !trimmed.endsWith('Orch') && !unbalancedParen) {
           groupModels.push(trimmed);
         }
       }
@@ -221,12 +233,19 @@ function parseUsagePaneText(paneText) {
     return { weekly, fiveHour, groupModels };
   };
 
+  const effectiveGroupPct = (parsed) => {
+    if (parsed.weekly && parsed.fiveHour) return Math.min(parsed.weekly.pct, parsed.fiveHour.pct);
+    if (parsed.fiveHour) return parsed.fiveHour.pct;
+    if (parsed.weekly) return parsed.weekly.pct;
+    return 100;
+  };
+
   if (geminiIdx !== -1) {
     const end = claudeIdx > geminiIdx ? claudeIdx : clean.length;
     const parsed = extractLimitsFromBlock(clean.slice(geminiIdx, end));
     result.geminiWeekly = parsed.weekly;
     result.gemini5h = parsed.fiveHour;
-    const gPct = parsed.fiveHour ? parsed.fiveHour.pct : (parsed.weekly ? parsed.weekly.pct : 100);
+    const gPct = effectiveGroupPct(parsed);
     for (const mName of parsed.groupModels) {
       result.models.push({ name: mName, remainingPct: gPct });
     }
@@ -235,7 +254,7 @@ function parseUsagePaneText(paneText) {
     const parsed = extractLimitsFromBlock(clean.slice(claudeIdx));
     result.claudeWeekly = parsed.weekly;
     result.claude5h = parsed.fiveHour;
-    const cPct = parsed.weekly ? parsed.weekly.pct : (parsed.fiveHour ? parsed.fiveHour.pct : 100);
+    const cPct = effectiveGroupPct(parsed);
     for (const mName of parsed.groupModels) {
       result.models.push({ name: mName, remainingPct: cPct });
     }
@@ -331,9 +350,15 @@ async function pollProfile(alias, profileHome, agyBin) {
   const fromStatus = parseStatusLineJson(statusObj) || {};
 
   const geminiWeekly = fromPane.geminiWeekly || fromStatus.geminiWeekly || { pct: 100, resetAt: null };
-  const gemini5h = fromPane.gemini5h || fromStatus.gemini5h || { pct: 100, resetAt: null };
+  const gemini5h =
+    fromPane.gemini5h ||
+    fromStatus.gemini5h ||
+    (geminiWeekly.pct <= 0 ? { pct: 0, resetAt: geminiWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null });
   const claudeWeekly = fromPane.claudeWeekly || fromStatus.claudeWeekly || { pct: 100, resetAt: null };
-  const claude5h = fromPane.claude5h || fromStatus.claude5h || { pct: 100, resetAt: null };
+  const claude5h =
+    fromPane.claude5h ||
+    fromStatus.claude5h ||
+    (claudeWeekly.pct <= 0 ? { pct: 0, resetAt: claudeWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null });
 
   // Detect if profile hasn't completed OAuth login yet
   const unauthenticated = /sign in|authorization url|paste.*code/i.test(paneText) && !fromPane.email && !fromStatus.email;
@@ -342,7 +367,7 @@ async function pollProfile(alias, profileHome, agyBin) {
   }
 
   const email = fromPane.email || fromStatus.email || `${alias}@gmail.com`;
-  const displayName = alias;
+  const displayName = alias.startsWith('host_') && email.includes('@') ? email.split('@')[0] : alias;
   const plan = fromStatus.plan || 'Google AI Pro';
   const avgPct = Math.round(((geminiWeekly.pct + gemini5h.pct + claudeWeekly.pct + claude5h.pct) / 4) * 10) / 10;
 
@@ -445,12 +470,147 @@ async function pollProfileSerialized(alias, profileHome, agyBin) {
   return promise;
 }
 
+const IMPORTED_HOMES_STATE_PATH = path.join(STATE_DIR, 'imported-homes.json');
+
+function getDirLatestMtimeMs(dirPath) {
+  if (!fs.existsSync(dirPath)) return 0;
+  let latest = 0;
+  try {
+    latest = fs.statSync(dirPath).mtimeMs || 0;
+    for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+      const subPath = path.join(dirPath, entry.name);
+      try {
+        const st = fs.statSync(subPath);
+        if (st.mtimeMs > latest) latest = st.mtimeMs;
+      } catch {
+        // Ignore transient temp files
+      }
+    }
+  } catch {
+    return 0;
+  }
+  return Math.floor(latest);
+}
+
+/**
+ * Auto-discover `agy` logins performed directly in `/home/<user>` or `/root`
+ * (outside `sudo ag-tracker login <alias>`) and mirror their auth dir into PROFILES_DIR.
+ */
+function importHostAgyProfiles() {
+  if (process.platform === 'win32') return;
+  let skipMap = {};
+  if (fs.existsSync(IMPORTED_HOMES_STATE_PATH)) {
+    try {
+      skipMap = JSON.parse(fs.readFileSync(IMPORTED_HOMES_STATE_PATH, 'utf8')) || {};
+    } catch {
+      skipMap = {};
+    }
+  }
+
+  const candidateHomes = [];
+  if (fs.existsSync('/root/.gemini')) {
+    candidateHomes.push({ user: 'root', homeDir: '/root' });
+  }
+  if (fs.existsSync('/home')) {
+    try {
+      for (const d of fs.readdirSync('/home', { withFileTypes: true })) {
+        if (!d.isDirectory()) continue;
+        const uHome = path.join('/home', d.name);
+        if (fs.existsSync(path.join(uHome, '.gemini'))) {
+          candidateHomes.push({ user: d.name, homeDir: uHome });
+        }
+      }
+    } catch {
+      // Ignore unreadable /home
+    }
+  }
+
+  for (const { user, homeDir } of candidateHomes) {
+    const alias = `host_${user.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const destProfile = path.join(PROFILES_DIR, alias);
+    if (fs.existsSync(destProfile)) continue;
+
+    const geminiSrc = path.join(homeDir, '.gemini');
+    const mtimeSignature = getDirLatestMtimeMs(geminiSrc);
+    if (mtimeSignature <= 0) continue;
+    if (skipMap[homeDir] && skipMap[homeDir] === mtimeSignature) continue;
+
+    try {
+      let hasAuthCandidate = false;
+      for (const item of fs.readdirSync(geminiSrc)) {
+        if (/antigravity|oauth|account|cred|google|cli/i.test(item)) {
+          hasAuthCandidate = true;
+          break;
+        }
+      }
+      if (!hasAuthCandidate) continue;
+
+      fs.mkdirSync(destProfile, { recursive: true });
+      fs.cpSync(geminiSrc, path.join(destProfile, '.gemini'), { recursive: true, force: true });
+
+      const configSrc = path.join(homeDir, '.config');
+      if (fs.existsSync(configSrc)) {
+        for (const item of fs.readdirSync(configSrc)) {
+          if (/antigravity/i.test(item)) {
+            fs.mkdirSync(path.join(destProfile, '.config'), { recursive: true });
+            fs.cpSync(path.join(configSrc, item), path.join(destProfile, '.config', item), {
+              recursive: true,
+              force: true,
+            });
+          }
+        }
+      }
+      console.log(`[ag-tracker] Auto-imported existing agy session from ${homeDir} -> ${alias}`);
+    } catch (err) {
+      console.warn(`[ag-tracker] Could not import ${homeDir}:`, err.message);
+    }
+  }
+}
+
+function markHostProfileSkipped(alias) {
+  if (!alias.startsWith('host_')) return;
+  const user = alias.slice('host_'.length);
+  const homeDir = user === 'root' ? '/root' : path.join('/home', user);
+  const mtimeSignature = getDirLatestMtimeMs(path.join(homeDir, '.gemini'));
+  let skipMap = {};
+  if (fs.existsSync(IMPORTED_HOMES_STATE_PATH)) {
+    try {
+      skipMap = JSON.parse(fs.readFileSync(IMPORTED_HOMES_STATE_PATH, 'utf8')) || {};
+    } catch {
+      skipMap = {};
+    }
+  }
+  skipMap[homeDir] = mtimeSignature;
+  try {
+    fs.writeFileSync(IMPORTED_HOMES_STATE_PATH, JSON.stringify(skipMap, null, 2), 'utf8');
+  } catch {
+    // Ignore write errors
+  }
+
+  const sessionName = `agy_${alias.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  try {
+    execFileSync('tmux', ['kill-session', '-t', sessionName], { stdio: 'ignore' });
+  } catch {
+    // Session already gone
+  }
+  fs.rmSync(path.join(PROFILES_DIR, alias), { recursive: true, force: true });
+  fs.rmSync(path.join(STATE_DIR, `${alias}.json`), { force: true });
+}
+
 async function runCycle(options = {}) {
+  importHostAgyProfiles();
   const agyBin = findAgyBinary();
   const config = loadConfig();
   const tunnelUrl = getCurrentTunnelUrl(config);
   const entries = fs.existsSync(PROFILES_DIR)
-    ? fs.readdirSync(PROFILES_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
+    ? fs
+        .readdirSync(PROFILES_DIR, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .sort((a, b) => {
+          const aHost = a.name.startsWith('host_') ? 1 : 0;
+          const bHost = b.name.startsWith('host_') ? 1 : 0;
+          return aHost - bHost || a.name.localeCompare(b.name);
+        })
     : [];
 
   if (entries.length === 0) {
@@ -461,16 +621,30 @@ async function runCycle(options = {}) {
   }
 
   const activeResults = [];
+  const seenEmails = new Set();
   for (const dir of entries) {
     const profileHome = path.join(PROFILES_DIR, dir.name);
     const res = await pollProfileSerialized(dir.name, profileHome, agyBin);
     if (!res) continue;
     if (res.unauthenticated) {
+      if (dir.name.startsWith('host_')) {
+        markHostProfileSkipped(dir.name);
+        continue;
+      }
       if (options.printStatus) {
         console.log(`- [${dir.name}]: Chưa hoàn tất đăng nhập OAuth (chạy: sudo ag-tracker login ${dir.name})`);
       }
       continue;
     }
+    const normEmail = String(res.payload.email || '').trim().toLowerCase();
+    if (normEmail && seenEmails.has(normEmail)) {
+      if (dir.name.startsWith('host_')) {
+        markHostProfileSkipped(dir.name);
+      }
+      continue;
+    }
+    if (normEmail) seenEmails.add(normEmail);
+
     if (tunnelUrl && config.apiSecret) {
       res.payload.liveEndpoint = {
         url: tunnelUrl,
@@ -525,6 +699,9 @@ async function runCycle(options = {}) {
   for (const r of activeResults) {
     const keys = new Set();
     keys.add(r.alias.toLowerCase());
+    if (r.alias.startsWith('host_')) {
+      keys.add(r.alias.slice('host_'.length).toLowerCase());
+    }
     if (r.payload.email) {
       const cleanEmail = r.payload.email.toLowerCase();
       keys.add(cleanEmail);
@@ -575,19 +752,45 @@ function resolveProfileAlias(requestedAlias, requestedEmail) {
   const cleanAlias = String(requestedAlias || '').trim().toLowerCase();
   const cleanEmail = String(requestedEmail || '').trim().toLowerCase();
 
-  if (cleanAlias) {
-    const direct = entries.find(e => e.toLowerCase() === cleanAlias);
-    if (direct) return direct;
-  }
+  const readSavedEmail = (entryName) => {
+    const cached = latestCache.get(entryName);
+    if (cached && cached.payload && cached.payload.email) {
+      return cached.payload.email.toLowerCase();
+    }
+    const stateFile = path.join(STATE_DIR, `${entryName}.json`);
+    if (fs.existsSync(stateFile)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        if (parsed && parsed.email) return String(parsed.email).toLowerCase();
+      } catch {
+        // Ignore unreadable state file
+      }
+    }
+    return '';
+  };
+
   if (cleanEmail) {
+    for (const entryName of entries) {
+      if (readSavedEmail(entryName) === cleanEmail) return entryName;
+    }
     const prefix = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
     const byPrefix = entries.find(e => e.toLowerCase() === prefix);
     if (byPrefix) return byPrefix;
-    for (const [alias, entry] of latestCache.entries()) {
-      if ((entry.payload.email || '').toLowerCase() === cleanEmail) return alias;
+  }
+
+  if (cleanAlias) {
+    const direct = entries.find(e => e.toLowerCase() === cleanAlias);
+    if (direct) return direct;
+    for (const entryName of entries) {
+      const savedEmail = readSavedEmail(entryName);
+      if (savedEmail && savedEmail.split('@')[0] === cleanAlias) return entryName;
     }
   }
-  return entries.length === 1 ? entries[0] : entries[0];
+
+  if (cleanEmail || cleanAlias) {
+    return null;
+  }
+  return entries[0];
 }
 
 function startRealtimeHttpServer() {
