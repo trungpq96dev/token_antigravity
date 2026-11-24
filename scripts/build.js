@@ -86,15 +86,22 @@ function buildEncryptedCloudVault() {
   if (gitName && gitEmail) {
     registerIdentity(gitName, gitName, gitEmail);
   }
+  const envEmail = (process.env.AG_USER_EMAIL || '').trim().toLowerCase();
+  const envName = (process.env.AG_USER_NAME || '').trim();
+  if (envEmail) {
+    registerEmailAccount(envEmail, envName || envEmail.split('@')[0]);
+  }
   if (process.env.AG_VAULT_KEYS) {
     for (const rawKey of process.env.AG_VAULT_KEYS.split(',')) {
       const k = rawKey.trim().toLowerCase();
       if (!k) continue;
       if (k.includes('@')) {
-        registerEmailAccount(k, k.split('@')[0]);
+        const display = (k === envEmail && envName) ? envName : k.split('@')[0];
+        registerEmailAccount(k, display);
       } else {
-        const matchedEmail = gitEmail || telemetry.email;
-        registerIdentity(k, k, matchedEmail);
+        const matchedEmail = envEmail || gitEmail || telemetry.email;
+        const display = envName || matchedEmail.split('@')[0];
+        registerIdentity(k, display, matchedEmail);
       }
     }
   }

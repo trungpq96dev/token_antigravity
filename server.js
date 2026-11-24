@@ -113,7 +113,10 @@ function inspectConversationDir(convDir) {
  */
 function readAntigravityIdeAuthStatus() {
   const appDataDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  const vscdbPath = path.join(appDataDir, 'Antigravity', 'User', 'globalStorage', 'state.vscdb');
+  const candidateVscdbs = [
+    path.join(appDataDir, 'Antigravity IDE', 'User', 'globalStorage', 'state.vscdb'),
+    path.join(appDataDir, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
+  ];
   const appStoragePath = path.join(appDataDir, 'Antigravity', 'app_storage.json');
 
   let name = '';
@@ -121,40 +124,64 @@ function readAntigravityIdeAuthStatus() {
   let plan = 'Pro Plan';
   const models = [];
 
-  try {
-    if (fs.existsSync(vscdbPath)) {
+  for (const vscdbPath of candidateVscdbs) {
+    if (!fs.existsSync(vscdbPath)) continue;
+    try {
       const { DatabaseSync } = require('node:sqlite');
       const db = new DatabaseSync(vscdbPath, { readOnly: true });
-      const row = db.prepare("SELECT value FROM ItemTable WHERE key = 'antigravityAuthStatus'").get();
-      db.close();
-      if (row && row.value) {
-        const auth = JSON.parse(row.value);
-        name = typeof auth.name === 'string' ? auth.name : '';
-        email = typeof auth.email === 'string' ? auth.email : '';
-        if (typeof auth.userStatusProtoBinaryBase64 === 'string') {
-          const buf = Buffer.from(auth.userStatusProtoBinaryBase64, 'base64');
-          const latin = buf.toString('latin1');
-          if (/g1-ultra-tier/i.test(latin)) plan = 'Ultra Plan';
-          else if (/g1-pro-tier/i.test(latin)) plan = 'Google AI Pro';
-          else if (/free/i.test(latin)) plan = 'Free Tier';
 
-          const modelRegex = /(Gemini [0-9.]+ [A-Za-z]+ \([A-Za-z]+\)|Claude [A-Za-z]+ [0-9.]+ \([A-Za-z]+\)|GPT-OSS [0-9]+B \([A-Za-z]+\))/g;
-          let m;
-          while ((m = modelRegex.exec(latin)) !== null) {
-            const slice = buf.subarray(m.index + m[1].length, m.index + m[1].length + 30);
-            const zIdx = slice.indexOf(0x7a);
-            if (zIdx !== -1 && slice[zIdx + 2] === 0x0d) {
-              const frac = slice.readFloatLE(zIdx + 3);
-              if (Number.isFinite(frac) && frac >= 0 && frac <= 1) {
-                models.push({ name: m[1], remainingPct: Math.round(frac * 1000) / 10 });
-              }
+      const googleAgRow = db.prepare("SELECT value FROM ItemTable WHERE key = 'google.google-antigravity'").get();
+      if (!email && googleAgRow && googleAgRow.value) {
+        try {
+          const parsed = JSON.parse(googleAgRow.value);
+          const storedEmail = parsed?.['antigravity-storage']?.['agy.onboarding.lastLoginUsername'];
+          if (typeof storedEmail === 'string' && storedEmail) email = storedEmail;
+        } catch {
+          // Ignore malformed JSON
+        }
+      }
+
+      const authRow = db.prepare("SELECT value FROM ItemTable WHERE key = 'antigravityAuthStatus'").get();
+      const statusRow = db.prepare("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.userStatus'").get();
+      db.close();
+
+      let protoBuf = null;
+      if (authRow && authRow.value) {
+        const auth = JSON.parse(authRow.value);
+        if (!name && typeof auth.name === 'string') name = auth.name;
+        if (!email && typeof auth.email === 'string') email = auth.email;
+        if (typeof auth.userStatusProtoBinaryBase64 === 'string') {
+          protoBuf = Buffer.from(auth.userStatusProtoBinaryBase64, 'base64');
+        }
+      } else if (statusRow && statusRow.value) {
+        const outerStr = Buffer.from(statusRow.value, 'base64').toString('utf8');
+        const b64Matches = outerStr.match(/[A-Za-z0-9+/=]{80,}/g) || [];
+        if (b64Matches[0]) protoBuf = Buffer.from(b64Matches[0], 'base64');
+      }
+
+      if (protoBuf && models.length === 0) {
+        const latin = protoBuf.toString('latin1');
+        if (/g1-ultra-tier/i.test(latin)) plan = 'Ultra Plan';
+        else if (/g1-pro-tier/i.test(latin)) plan = 'Google AI Pro';
+        else if (/free/i.test(latin)) plan = 'Free Tier';
+
+        const modelRegex = /(Gemini [0-9.]+ [A-Za-z]+ \([A-Za-z]+\)|Claude [A-Za-z]+ [0-9.]+ \([A-Za-z]+\)|GPT-OSS [0-9]+B \([A-Za-z]+\))/g;
+        let m;
+        while ((m = modelRegex.exec(latin)) !== null) {
+          const slice = protoBuf.subarray(m.index + m[1].length, m.index + m[1].length + 35);
+          const zIdx = slice.indexOf(0x7a);
+          if (zIdx !== -1 && slice[zIdx + 2] === 0x0d) {
+            const frac = slice.readFloatLE(zIdx + 3);
+            if (Number.isFinite(frac) && frac >= 0 && frac <= 1) {
+              models.push({ name: m[1], remainingPct: Math.round(frac * 1000) / 10 });
             }
           }
         }
       }
+      if (email && models.length > 0) break;
+    } catch {
+      // Try next candidate
     }
-  } catch {
-    // Fallback below if sqlite cannot be opened
   }
 
   if (!email && fs.existsSync(appStoragePath)) {
@@ -171,6 +198,42 @@ function readAntigravityIdeAuthStatus() {
   return { name, email, plan, models };
 }
 
+const BASELINE_PATH = path.join(__dirname, 'quota-baseline.json');
+
+function loadOrInitQuotaBaseline(currentTotalBytes) {
+  if (fs.existsSync(BASELINE_PATH)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'));
+      if (parsed && parsed.gemini && parsed.claudeGpt) return parsed;
+    } catch {
+      // Reinitialize if malformed
+    }
+  }
+  const nowMs = Date.now();
+  const initial = {
+    gemini: {
+      weekly: { pct: 90, resetAt: new Date(nowMs + (6 * 24 + 20) * 3600 * 1000).toISOString() },
+      fiveHour: { pct: 65, resetAt: new Date(nowMs + 60 * 60 * 1000).toISOString() },
+    },
+    claudeGpt: {
+      weekly: { pct: 49, resetAt: new Date(nowMs + (6 * 24 + 10) * 3600 * 1000).toISOString() },
+      fiveHour: { pct: 100, resetAt: null },
+    },
+    baselineTotalBytes: currentTotalBytes,
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    fs.writeFileSync(BASELINE_PATH, JSON.stringify(initial, null, 2), 'utf8');
+  } catch {
+    // Ignore read-only filesystem
+  }
+  return initial;
+}
+
+function saveQuotaBaseline(baseline) {
+  fs.writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2), 'utf8');
+}
+
 /**
  * Scan local ~/.gemini/antigravity data and IDE auth state to compute live telemetry.
  */
@@ -180,6 +243,8 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
   const { keys: dayKeys, labels: trendLabels } = getLast7DayKeysAndLabels();
   const dailyTokenMap = Object.fromEntries(dayKeys.map(k => [k, 0]));
   const sessions = [];
+
+  let totalTranscriptBytes = 0;
 
   if (fs.existsSync(brainDir)) {
     let convDirs = [];
@@ -193,6 +258,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
       const convPath = path.join(brainDir, dir.name);
       const { bytes, mtimeMs } = inspectConversationDir(convPath);
       if (bytes <= 0 || mtimeMs <= 0) continue;
+      totalTranscriptBytes += bytes;
 
       // Approximate 1 token per 4 bytes of serialized transcript/artifact data
       const estTokens = Math.max(250, Math.round(bytes / 4));
@@ -260,26 +326,28 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
   }));
 
   const nowMs = Date.now();
+  const baseline = loadOrInitQuotaBaseline(totalTranscriptBytes);
+  const deltaBytes = Math.max(0, totalTranscriptBytes - Number(baseline.baselineTotalBytes || totalTranscriptBytes));
+
+  const resolveQuotaItem = (item, deltaPct) => {
+    if (item.resetAt && new Date(item.resetAt).getTime() <= nowMs) {
+      return { pct: 100, resetAt: null };
+    }
+    const basePct = Number(item.pct) || 0;
+    return {
+      pct: Math.max(0, Math.min(100, Math.round(basePct - deltaPct))),
+      resetAt: item.resetAt || null,
+    };
+  };
+
   const quotaLimits = {
     gemini: {
-      weekly: {
-        pct: Number(process.env.AG_GEMINI_WEEKLY_PCT || 91),
-        resetAt: new Date(nowMs + ((6 * 24 + 20) * 60) * 60 * 1000).toISOString(),
-      },
-      fiveHour: {
-        pct: Number(process.env.AG_GEMINI_5H_PCT || 74),
-        resetAt: new Date(nowMs + (1 * 60 + 13) * 60 * 1000).toISOString(),
-      },
+      weekly: resolveQuotaItem(baseline.gemini.weekly, Math.floor(deltaBytes / 125000)),
+      fiveHour: resolveQuotaItem(baseline.gemini.fiveHour, Math.floor(deltaBytes / 14000)),
     },
     claudeGpt: {
-      weekly: {
-        pct: Number(process.env.AG_CLAUDE_WEEKLY_PCT || 49),
-        resetAt: new Date(nowMs + ((6 * 24 + 10) * 60) * 60 * 1000).toISOString(),
-      },
-      fiveHour: {
-        pct: Number(process.env.AG_CLAUDE_5H_PCT || 100),
-        resetAt: null,
-      },
+      weekly: resolveQuotaItem(baseline.claudeGpt.weekly, 0),
+      fiveHour: resolveQuotaItem(baseline.claudeGpt.fiveHour, 0),
     },
   };
 
@@ -308,6 +376,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     trend,
     trendLabels,
     dailyRawTokens: rawDaily,
+    totalTranscriptBytes,
     sessionsScanned: sessions.length,
     history,
     syncedAt: new Date().toISOString(),
@@ -464,6 +533,31 @@ const server = http.createServer(async (req, res) => {
     const maxParam = Number(urlObj.searchParams.get('max') || DEFAULT_MAX_TOKENS);
     const telemetry = collectLocalAntigravityTelemetry(maxParam > 0 ? maxParam : DEFAULT_MAX_TOKENS);
     return sendJson(res, 200, telemetry);
+  }
+
+  if (req.method === 'POST' && pathname === '/api/update-quota') {
+    try {
+      const body = await readJsonBody(req);
+      const current = collectLocalAntigravityTelemetry();
+      const prev = loadOrInitQuotaBaseline(current.totalTranscriptBytes || 0);
+      const clamp = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+      const updated = {
+        gemini: {
+          weekly: { pct: clamp(body.geminiWeekly ?? prev.gemini.weekly.pct), resetAt: body.geminiWeeklyResetAt ?? prev.gemini.weekly.resetAt },
+          fiveHour: { pct: clamp(body.gemini5h ?? prev.gemini.fiveHour.pct), resetAt: body.gemini5hResetAt ?? prev.gemini.fiveHour.resetAt },
+        },
+        claudeGpt: {
+          weekly: { pct: clamp(body.claudeWeekly ?? prev.claudeGpt.weekly.pct), resetAt: body.claudeWeeklyResetAt ?? prev.claudeGpt.weekly.resetAt },
+          fiveHour: { pct: clamp(body.claude5h ?? prev.claudeGpt.fiveHour.pct), resetAt: body.claude5hResetAt ?? prev.claudeGpt.fiveHour.resetAt },
+        },
+        baselineTotalBytes: current.totalTranscriptBytes || 0,
+        updatedAt: new Date().toISOString(),
+      };
+      saveQuotaBaseline(updated);
+      return sendJson(res, 200, { ok: true, quotaLimits: updated });
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message || 'Failed to update quota baseline' });
+    }
   }
 
   if (req.method === 'POST' && pathname === '/api/fetch-usage') {

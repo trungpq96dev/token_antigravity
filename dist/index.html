@@ -764,9 +764,9 @@
 
     function applyLiveDataToAccount(acc, live) {
       if (!live) return;
-      if (acc.id === 'acc-local' && (live.source === 'local-antigravity' || live.source === 'cloud-vault')) {
-        if (live.name) acc.name = live.name;
-        if (live.email && live.email !== 'local@antigravity.dev') acc.email = live.email;
+      if (live.source === 'local-antigravity' || live.source === 'cloud-vault') {
+        if (!acc.customNameOverride && live.name) acc.name = live.name;
+        if (acc.id === 'acc-local' && live.email && live.email !== 'local@antigravity.dev') acc.email = live.email;
       }
       if (live.plan) acc.plan = live.plan;
       if (typeof live.max === 'number' && live.max > 0) acc.max = live.max;
@@ -1018,6 +1018,7 @@
         const existing = accounts.find(a => a.id === editId);
         if (existing) {
           existing.name = name;
+          existing.customNameOverride = Boolean(nameInput);
           existing.email = email;
           existing.plan = plan;
           existing.provider = provider;
@@ -1033,6 +1034,7 @@
         const newAcc = {
           id: 'acc-' + Date.now(),
           name,
+          customNameOverride: Boolean(nameInput),
           email,
           plan,
           provider,
@@ -1089,25 +1091,44 @@
       document.getElementById('pct-modal').classList.add('hidden');
     }
 
-    function savePctModal(e) {
+    async function savePctModal(e) {
       e.preventDefault();
       const acc = getActiveAccount();
       if (!acc) return;
       const clamp = v => Math.max(0, Math.min(100, Number(v) || 0));
       const prev = acc.quotaLimits || { gemini: { weekly: {}, fiveHour: {} }, claudeGpt: { weekly: {}, fiveHour: {} } };
+      const gW = clamp(document.getElementById('inp-gem-w').value);
+      const g5 = clamp(document.getElementById('inp-gem-5h').value);
+      const cW = clamp(document.getElementById('inp-cla-w').value);
+      const c5 = clamp(document.getElementById('inp-cla-5h').value);
       acc.quotaLimits = {
         gemini: {
-          weekly: { pct: clamp(document.getElementById('inp-gem-w').value), resetAt: prev.gemini?.weekly?.resetAt || null },
-          fiveHour: { pct: clamp(document.getElementById('inp-gem-5h').value), resetAt: prev.gemini?.fiveHour?.resetAt || null }
+          weekly: { pct: gW, resetAt: prev.gemini?.weekly?.resetAt || null },
+          fiveHour: { pct: g5, resetAt: prev.gemini?.fiveHour?.resetAt || null }
         },
         claudeGpt: {
-          weekly: { pct: clamp(document.getElementById('inp-cla-w').value), resetAt: prev.claudeGpt?.weekly?.resetAt || null },
-          fiveHour: { pct: clamp(document.getElementById('inp-cla-5h').value), resetAt: prev.claudeGpt?.fiveHour?.resetAt || null }
+          weekly: { pct: cW, resetAt: prev.claudeGpt?.weekly?.resetAt || null },
+          fiveHour: { pct: c5, resetAt: prev.claudeGpt?.fiveHour?.resetAt || null }
         }
       };
       persistAccounts();
       closePctModal();
       renderDashboard();
+
+      // Sync calibrated % baseline to local server if running
+      for (const base of LOCAL_BRIDGE_BASES) {
+        if (base && location.origin === base) continue;
+        try {
+          const res = await fetch(`${base}/api/update-quota`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ geminiWeekly: gW, gemini5h: g5, claudeWeekly: cW, claude5h: c5 })
+          });
+          if (res.ok) break;
+        } catch {
+          // Ignore if offline / remote
+        }
+      }
     }
 
     function openAlertModal() {
