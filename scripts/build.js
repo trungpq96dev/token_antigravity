@@ -84,6 +84,10 @@ function build() {
   fs.writeFileSync(distFallbackPath, snapshotJson, 'utf8');
   builtFiles.push({ file: 'api-fallback.json', size: fs.statSync(distFallbackPath).size });
 
+  // Keep root fallback & .nojekyll in sync in case Pages serves from main
+  fs.writeFileSync(path.join(ROOT_DIR, 'api-fallback.json'), snapshotJson, 'utf8');
+  fs.writeFileSync(path.join(ROOT_DIR, '.nojekyll'), '', 'utf8');
+
   // Prevent GitHub Pages Jekyll processing
   const nojekyllPath = path.join(DIST_DIR, '.nojekyll');
   fs.writeFileSync(nojekyllPath, '', 'utf8');

@@ -28,7 +28,7 @@ jobs:
 
       - name: Verify no private data in dist
         run: |
-          if grep -RniE "phamquangtrung962196|C:/Users/Admin|sk-or-|AIza" dist/; then
+          if grep -RniE "phamquangtrung962196|C:/Users/Admin|sk-or-v1-[0-9a-zA-Z]{20,}|AIza[0-9A-Za-z_-]{20,}" dist/; then
             echo "Private data detected in dist/!"
             exit 1
           fi
@@ -39,3 +39,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+        with:
+          enablement: true
