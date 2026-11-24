@@ -382,10 +382,26 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-if (require.main === module) {
-  server.listen(PORT, () => {
-    console.log(`Antigravity Token Dashboard running at http://localhost:${PORT} (serving ${STATIC_ROOT})`);
+function startServer(port, attemptsRemaining = 20) {
+  const onError = (err) => {
+    if (err.code === 'EADDRINUSE' && attemptsRemaining > 0) {
+      const nextPort = port + 1;
+      console.warn(`Port ${port} is already in use, trying port ${nextPort}...`);
+      startServer(nextPort, attemptsRemaining - 1);
+      return;
+    }
+    throw err;
+  };
+
+  server.once('error', onError);
+  server.listen(port, () => {
+    server.removeListener('error', onError);
+    console.log(`Antigravity Token Dashboard running at http://localhost:${port} (serving ${STATIC_ROOT})`);
   });
 }
 
-module.exports = { server, collectLocalAntigravityTelemetry };
+if (require.main === module) {
+  startServer(PORT);
+}
+
+module.exports = { server, startServer, collectLocalAntigravityTelemetry };
