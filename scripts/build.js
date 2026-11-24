@@ -15,53 +15,6 @@ const STATIC_FILES = [
   'netlify.toml',
 ];
 
-function createAnonymizedFallback() {
-  return {
-    source: 'demo-snapshot',
-    name: 'Local Antigravity IDE',
-    email: 'local@antigravity.dev',
-    plan: 'Pro Plan',
-    max: 2000000,
-    used: 579500,
-    remaining: 1420500,
-    resetDays: 6,
-    tasks: {
-      agent: 380000,
-      auto: 145000,
-      chat: 54500,
-    },
-    trend: [55, 78, 46, 62, 28, 52, 85],
-    trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-    history: [
-      {
-        id: 'tx-demo-1',
-        title: 'Agent Refactor Session',
-        taskType: 'Agent & Reasoning',
-        delta: -142000,
-        timestamp: '2026-11-24T01:00:00.000Z',
-        source: 'Demo Snapshot',
-      },
-      {
-        id: 'tx-demo-2',
-        title: 'Inline Code Completion',
-        taskType: 'Code Autocomplete',
-        delta: -48500,
-        timestamp: '2026-11-23T18:30:00.000Z',
-        source: 'Demo Snapshot',
-      },
-      {
-        id: 'tx-demo-3',
-        title: 'Monthly Quota Allocation',
-        taskType: 'Top-up',
-        delta: 2000000,
-        timestamp: '2026-11-01T00:00:00.000Z',
-        source: 'Billing',
-      },
-    ],
-    syncedAt: new Date().toISOString(),
-  };
-}
-
 /**
  * Encrypt a JSON payload using PBKDF2-SHA256 + AES-256-GCM compatible with Web Crypto subtle.decrypt.
  */
@@ -175,23 +128,14 @@ function build() {
     builtFiles.push({ file, size });
   }
 
-  // Write sanitized demo snapshot (never reads personal ~/.gemini/antigravity into plaintext dist/)
-  const snapshotJson = JSON.stringify(createAnonymizedFallback(), null, 2);
-  const distFallbackPath = path.join(DIST_DIR, 'api-fallback.json');
-  fs.writeFileSync(distFallbackPath, snapshotJson, 'utf8');
-  builtFiles.push({ file: 'api-fallback.json', size: fs.statSync(distFallbackPath).size });
-
   // Write AES-256-GCM encrypted cloud vault for mobile / remote login when PC is off
   const vaultContent = buildEncryptedCloudVault();
   const distVaultPath = path.join(DIST_DIR, 'cloud-vault.json');
   fs.writeFileSync(distVaultPath, vaultContent, 'utf8');
   builtFiles.push({ file: 'cloud-vault.json', size: fs.statSync(distVaultPath).size });
 
-  // Keep root fallback & .nojekyll in sync in case Pages serves from main
-  fs.writeFileSync(path.join(ROOT_DIR, 'api-fallback.json'), snapshotJson, 'utf8');
-  fs.writeFileSync(path.join(ROOT_DIR, '.nojekyll'), '', 'utf8');
-
   // Prevent GitHub Pages Jekyll processing
+  fs.writeFileSync(path.join(ROOT_DIR, '.nojekyll'), '', 'utf8');
   const nojekyllPath = path.join(DIST_DIR, '.nojekyll');
   fs.writeFileSync(nojekyllPath, '', 'utf8');
   builtFiles.push({ file: '.nojekyll', size: 0 });

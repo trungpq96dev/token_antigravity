@@ -80,7 +80,7 @@
         <div class="flex items-center gap-3">
           <span class="font-bold tracking-wider text-sm sm:text-base text-white">ANTIGRAVITY</span>
           <span id="plan-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-            <span id="plan-name">Pro Plan</span>
+            <span id="plan-name">--</span>
             <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
           </span>
           <span id="low-alert-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
@@ -91,10 +91,10 @@
         <!-- Account Switcher Dropdown -->
         <div class="relative" id="account-switcher-wrapper">
           <button onclick="toggleAccountMenu()" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 text-xs sm:text-sm transition">
-            <span id="current-avatar" class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-400 text-[11px] font-bold text-slate-950 flex items-center justify-center">P</span>
+            <span id="current-avatar" class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-400 text-[11px] font-bold text-slate-950 flex items-center justify-center">?</span>
             <div class="text-left">
-              <div id="current-acc-name" class="font-medium text-slate-100 leading-tight">Personal Dev</div>
-              <div id="current-acc-email" class="text-[10px] text-slate-400 leading-tight">personal@antigravity.dev</div>
+              <div id="current-acc-name" class="font-medium text-slate-100 leading-tight">Chưa đăng nhập</div>
+              <div id="current-acc-email" class="text-[10px] text-slate-400 leading-tight">Nhấn để đăng nhập</div>
             </div>
             <svg class="w-4 h-4 text-slate-400 ml-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
@@ -141,8 +141,8 @@
             <div class="space-y-2 flex-1">
               <div class="text-xs font-semibold uppercase tracking-widest text-slate-400">REMAINING TOKENS</div>
               <div class="flex flex-wrap items-baseline gap-2.5">
-                <span id="remaining-val" class="text-4xl sm:text-5xl font-bold font-mono text-white tracking-tight">1,420,500</span>
-                <span id="max-val" class="text-sm sm:text-base font-mono text-slate-400">/ 2,000,000 max</span>
+                <span id="remaining-val" class="text-4xl sm:text-5xl font-bold font-mono text-white tracking-tight">0</span>
+                <span id="max-val" class="text-sm sm:text-base font-mono text-slate-400">/ 0 max</span>
               </div>
             </div>
 
@@ -160,11 +160,11 @@
           <!-- Progress Bar -->
           <div class="mt-5 space-y-2">
             <div class="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden">
-              <div id="main-progress" class="h-full rounded-full progress-glow-normal transition-all duration-500" style="width: 71%;"></div>
+              <div id="main-progress" class="h-full rounded-full progress-glow-normal transition-all duration-500" style="width: 0%;"></div>
             </div>
             <div class="flex justify-between text-xs text-slate-300">
-              <span id="percent-text">71.0% remaining</span>
-              <span id="reset-text" class="text-slate-400">Resets in 6 days</span>
+              <span id="percent-text">0.0% remaining</span>
+              <span id="reset-text" class="text-slate-400">Resets in -- days</span>
             </div>
           </div>
         </section>
@@ -184,30 +184,30 @@
               <div>
                 <div class="flex justify-between text-xs mb-1.5">
                   <span class="text-slate-300">Agent &amp; Reasoning</span>
-                  <span id="task-agent-val" class="font-mono text-slate-300">380,000</span>
+                  <span id="task-agent-val" class="font-mono text-slate-300">0</span>
                 </div>
                 <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
-                  <div id="task-agent-bar" class="h-full task-glow-agent rounded-full transition-all duration-500" style="width: 68%;"></div>
+                  <div id="task-agent-bar" class="h-full task-glow-agent rounded-full transition-all duration-500" style="width: 0%;"></div>
                 </div>
               </div>
 
               <div>
                 <div class="flex justify-between text-xs mb-1.5">
                   <span class="text-slate-300">Code Autocomplete</span>
-                  <span id="task-auto-val" class="font-mono text-slate-300">145,000</span>
+                  <span id="task-auto-val" class="font-mono text-slate-300">0</span>
                 </div>
                 <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
-                  <div id="task-auto-bar" class="h-full task-glow-auto rounded-full transition-all duration-500" style="width: 32%;"></div>
+                  <div id="task-auto-bar" class="h-full task-glow-auto rounded-full transition-all duration-500" style="width: 0%;"></div>
                 </div>
               </div>
 
               <div>
                 <div class="flex justify-between text-xs mb-1.5">
                   <span class="text-slate-300">Quick Chat</span>
-                  <span id="task-chat-val" class="font-mono text-slate-300">54,500</span>
+                  <span id="task-chat-val" class="font-mono text-slate-300">0</span>
                 </div>
                 <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
-                  <div id="task-chat-bar" class="h-full task-glow-chat rounded-full transition-all duration-500" style="width: 14%;"></div>
+                  <div id="task-chat-bar" class="h-full task-glow-chat rounded-full transition-all duration-500" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -319,11 +319,11 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-slate-400 mb-1">Token còn lại</label>
-                <input id="inp-rem" type="number" min="0" value="1500000" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+                <input id="inp-rem" type="number" min="0" value="0" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
               </div>
               <div>
                 <label class="block text-slate-400 mb-1">Tổng hạn mức (Max)</label>
-                <input id="inp-max" type="number" min="1" value="2000000" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+                <input id="inp-max" type="number" min="0" value="0" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
               </div>
             </div>
           </div>
@@ -395,7 +395,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-base font-semibold text-white">Transaction &amp; Usage History</h3>
-          <p id="history-acc-subtitle" class="text-[11px] text-slate-400">Personal Dev</p>
+          <p id="history-acc-subtitle" class="text-[11px] text-slate-400">--</p>
         </div>
         <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
@@ -408,102 +408,31 @@
   </div>
 
   <script>
-    const STORAGE_ACCOUNTS_KEY = 'ag_accounts';
-    const STORAGE_ACTIVE_KEY = 'ag_active_id';
+    const STORAGE_ACCOUNTS_KEY = 'ag_accounts_v2';
+    const STORAGE_ACTIVE_KEY = 'ag_active_id_v2';
     const STORAGE_THRESHOLD_KEY = 'ag_alert_threshold';
 
-    const defaultAccounts = [
-      {
-        id: 'acc-1',
-        name: 'Personal Dev',
-        email: 'personal@antigravity.dev',
-        plan: 'Pro Plan',
-        provider: 'manual',
-        apiKey: '',
-        apiEndpoint: '',
-        remaining: 1420500,
-        max: 2000000,
-        resetDays: 6,
-        tasks: { agent: 380000, auto: 145000, chat: 54500 },
-        trend: [55, 78, 46, 62, 28, 52, 85],
-        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-        history: [
-          { id: 'tx-1', title: 'Agent Refactor Session', taskType: 'Agent & Reasoning', delta: -142000, timestamp: new Date(Date.now() - 3600 * 1000).toISOString(), source: 'Workspace' },
-          { id: 'tx-2', title: 'Inline Code Completion', taskType: 'Code Autocomplete', delta: -48500, timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), source: 'IDE' },
-          { id: 'tx-3', title: 'Monthly Quota Allocation', taskType: 'Top-up', delta: 2000000, timestamp: new Date(Date.now() - 24 * 86400 * 1000).toISOString(), source: 'Billing' }
-        ]
-      },
-      {
-        id: 'acc-local',
-        name: 'Local Antigravity IDE',
-        email: 'local@antigravity.dev',
-        plan: 'Pro Plan',
-        provider: 'local',
-        apiKey: '',
-        apiEndpoint: '',
-        remaining: 1420500,
-        max: 2000000,
-        resetDays: 6,
-        tasks: { agent: 380000, auto: 145000, chat: 54500 },
-        trend: [55, 78, 46, 62, 28, 52, 85],
-        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-        history: []
-      },
-      {
-        id: 'acc-2',
-        name: 'Team Production',
-        email: 'team@startup.io',
-        plan: 'Ultra Plan',
-        provider: 'manual',
-        apiKey: '',
-        apiEndpoint: '',
-        remaining: 7850000,
-        max: 10000000,
-        resetDays: 14,
-        tasks: { agent: 1520000, auto: 480000, chat: 150000 },
-        trend: [70, 65, 82, 90, 40, 75, 68],
-        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-        history: [
-          { id: 'tx-21', title: 'Multi-Agent Code Review', taskType: 'Agent & Reasoning', delta: -620000, timestamp: new Date(Date.now() - 7200 * 1000).toISOString(), source: 'CI Pipeline' }
-        ]
-      },
-      {
-        id: 'acc-3',
-        name: 'Backup Sandbox',
-        email: 'test02@gmail.com',
-        plan: 'Free Tier',
-        provider: 'manual',
-        apiKey: '',
-        apiEndpoint: '',
-        remaining: 42000,
-        max: 250000,
-        resetDays: 2,
-        tasks: { agent: 140000, auto: 48000, chat: 20000 },
-        trend: [90, 80, 75, 60, 45, 30, 18],
-        trendLabels: ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-        history: [
-          { id: 'tx-31', title: 'Sandbox Prompt Test', taskType: 'Quick Chat', delta: -12000, timestamp: new Date(Date.now() - 10800 * 1000).toISOString(), source: 'Sandbox' }
-        ]
-      }
-    ];
-
     function loadStoredAccounts() {
+      localStorage.removeItem('ag_accounts');
+      localStorage.removeItem('ag_active_id');
       try {
         const parsed = JSON.parse(localStorage.getItem(STORAGE_ACCOUNTS_KEY));
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(Boolean);
+        }
       } catch {
         // Ignore corrupted localStorage
       }
-      return structuredClone(defaultAccounts);
+      return [];
     }
 
     let accounts = loadStoredAccounts();
-    let activeId = localStorage.getItem(STORAGE_ACTIVE_KEY) || accounts[0].id;
+    let activeId = localStorage.getItem(STORAGE_ACTIVE_KEY) || (accounts[0] ? accounts[0].id : '');
     let alertThreshold = Number(localStorage.getItem(STORAGE_THRESHOLD_KEY) || 20);
 
     function persistAccounts() {
       localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(accounts));
-      localStorage.setItem(STORAGE_ACTIVE_KEY, activeId);
+      localStorage.setItem(STORAGE_ACTIVE_KEY, activeId || '');
     }
 
     function escapeHtml(str) {
@@ -532,6 +461,7 @@
     }
 
     function getActiveAccount() {
+      if (accounts.length === 0) return null;
       let acc = accounts.find(a => a.id === activeId);
       if (!acc) {
         acc = accounts[0];
@@ -544,25 +474,50 @@
       const acc = getActiveAccount();
       persistAccounts();
 
-      document.getElementById('plan-name').textContent = acc.plan || 'Pro Plan';
+      if (!acc) {
+        document.getElementById('plan-name').textContent = '--';
+        document.getElementById('current-avatar').textContent = '?';
+        document.getElementById('current-acc-name').textContent = 'Chưa đăng nhập';
+        document.getElementById('current-acc-email').textContent = 'Nhấn để đăng nhập';
+        document.getElementById('provider-badge').textContent = 'Chưa kết nối';
+        document.getElementById('remaining-val').textContent = '0';
+        document.getElementById('max-val').textContent = '/ 0 max';
+        document.getElementById('main-progress').style.width = '0%';
+        document.getElementById('percent-text').textContent = '0.0% remaining';
+        document.getElementById('reset-text').textContent = 'Resets in -- days';
+        document.getElementById('low-alert-pill').classList.add('hidden');
+        document.getElementById('task-agent-val').textContent = '0';
+        document.getElementById('task-auto-val').textContent = '0';
+        document.getElementById('task-chat-val').textContent = '0';
+        document.getElementById('task-agent-bar').style.width = '0%';
+        document.getElementById('task-auto-bar').style.width = '0%';
+        document.getElementById('task-chat-bar').style.width = '0%';
+        document.getElementById('trend-chart').innerHTML = '';
+        renderAccountMenu();
+        renderQuotaLimits(null);
+        renderModelQuotas(null);
+        return;
+      }
+
+      document.getElementById('plan-name').textContent = acc.plan || '--';
       document.getElementById('current-avatar').textContent = (acc.name || 'A').charAt(0).toUpperCase();
       document.getElementById('current-acc-name').textContent = acc.name;
       document.getElementById('current-acc-email').textContent = acc.email;
       document.getElementById('provider-badge').textContent = getProviderLabel(acc.provider);
 
-      const maxVal = Math.max(1, Number(acc.max) || 1);
+      const maxVal = Math.max(0, Number(acc.max) || 0);
       const remVal = Math.max(0, Number(acc.remaining) || 0);
-      const pct = Math.max(0, Math.min(100, (remVal / maxVal) * 100));
+      const pct = maxVal > 0 ? Math.max(0, Math.min(100, (remVal / maxVal) * 100)) : 0;
 
       document.getElementById('remaining-val').textContent = formatNum(remVal);
       document.getElementById('max-val').textContent = `/ ${formatNum(maxVal)} max`;
       document.getElementById('main-progress').style.width = `${pct.toFixed(1)}%`;
       document.getElementById('percent-text').textContent = `${pct.toFixed(1)}% remaining`;
-      document.getElementById('reset-text').textContent = `Resets in ${acc.resetDays || 6} days`;
+      document.getElementById('reset-text').textContent = acc.resetDays ? `Resets in ${acc.resetDays} days` : 'Resets in -- days';
 
       const bar = document.getElementById('main-progress');
       const alertPill = document.getElementById('low-alert-pill');
-      if (pct < alertThreshold) {
+      if (maxVal > 0 && pct < alertThreshold) {
         bar.className = 'h-full rounded-full progress-glow-low transition-all duration-500';
         alertPill.classList.remove('hidden');
         alertPill.textContent = `< ${alertThreshold}% Alert`;
@@ -572,26 +527,26 @@
       }
 
       const tasks = acc.tasks || { agent: 0, auto: 0, chat: 0 };
-      const totalUsed = Math.max(1, Number(tasks.agent) + Number(tasks.auto) + Number(tasks.chat));
+      const totalUsed = Number(tasks.agent) + Number(tasks.auto) + Number(tasks.chat);
       document.getElementById('task-agent-val').textContent = formatNum(tasks.agent);
       document.getElementById('task-auto-val').textContent = formatNum(tasks.auto);
       document.getElementById('task-chat-val').textContent = formatNum(tasks.chat);
 
-      document.getElementById('task-agent-bar').style.width = `${Math.round((tasks.agent / totalUsed) * 100)}%`;
-      document.getElementById('task-auto-bar').style.width = `${Math.round((tasks.auto / totalUsed) * 100)}%`;
-      document.getElementById('task-chat-bar').style.width = `${Math.round((tasks.chat / totalUsed) * 100)}%`;
+      document.getElementById('task-agent-bar').style.width = totalUsed > 0 ? `${Math.round((tasks.agent / totalUsed) * 100)}%` : '0%';
+      document.getElementById('task-auto-bar').style.width = totalUsed > 0 ? `${Math.round((tasks.auto / totalUsed) * 100)}%` : '0%';
+      document.getElementById('task-chat-bar').style.width = totalUsed > 0 ? `${Math.round((tasks.chat / totalUsed) * 100)}%` : '0%';
 
       const labels = Array.isArray(acc.trendLabels) && acc.trendLabels.length === 7
         ? acc.trendLabels
         : ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'];
       const trendValues = Array.isArray(acc.trend) && acc.trend.length === 7
         ? acc.trend
-        : [55, 78, 46, 62, 28, 52, 85];
+        : [0, 0, 0, 0, 0, 0, 0];
 
       const chartEl = document.getElementById('trend-chart');
       chartEl.innerHTML = trendValues.map((val, idx) => {
         const isToday = idx === 6;
-        const safeVal = Math.max(8, Math.min(100, Number(val) || 0));
+        const safeVal = Math.max(0, Math.min(100, Number(val) || 0));
         return `
           <div class="flex flex-col items-center gap-2 h-full justify-end group" title="${escapeHtml(labels[idx])}: ${safeVal}% intensity">
             <div class="w-3 sm:w-3.5 h-24 bg-slate-800/60 rounded-full flex items-end p-0.5">
@@ -700,7 +655,13 @@
 
     function renderQuotaLimits(acc) {
       const el = document.getElementById('quota-limits-section');
-      const limits = getEffectiveQuotaLimits(acc);
+      if (!acc || !acc.quotaLimits || !acc.quotaLimits.gemini || !acc.quotaLimits.claudeGpt) {
+        el.innerHTML = '';
+        el.classList.add('hidden');
+        return;
+      }
+      el.classList.remove('hidden');
+      const limits = acc.quotaLimits;
       el.innerHTML =
         renderLimitCard('Gemini Models', limits.gemini.weekly, limits.gemini.fiveHour) +
         renderLimitCard('Claude and GPT models', limits.claudeGpt.weekly, limits.claudeGpt.fiveHour);
@@ -710,7 +671,7 @@
       const sec = document.getElementById('model-quota-section');
       const grid = document.getElementById('model-quota-grid');
       const countEl = document.getElementById('model-quota-count');
-      const models = Array.isArray(acc.models) ? acc.models : [];
+      const models = acc && Array.isArray(acc.models) ? acc.models : [];
       if (models.length === 0) {
         sec.classList.add('hidden');
         return;
@@ -862,10 +823,6 @@
           const unlocked = await unlockFromCloudVault(vaultPass);
           if (unlocked) return unlocked;
         }
-        if (provider === 'local') {
-          const fallback = await fetch('./api-fallback.json').catch(() => null);
-          if (fallback && fallback.ok) return await fallback.json();
-        }
         return null;
       }
 
@@ -964,6 +921,10 @@
 
     async function syncActiveAccount(manualTrigger = false) {
       const acc = getActiveAccount();
+      if (!acc) {
+        setSyncStatus('Chưa có tài khoản — hãy đăng nhập', false, false);
+        return;
+      }
       setSyncStatus('Syncing...', true, false);
       try {
         const live = await fetchRealAccountData(acc);
@@ -1143,8 +1104,8 @@
       document.getElementById('inp-plan').value = 'Pro Plan';
       document.getElementById('inp-provider').value = 'auto';
       document.getElementById('inp-endpoint').value = '';
-      document.getElementById('inp-rem').value = '1500000';
-      document.getElementById('inp-max').value = '2000000';
+      document.getElementById('inp-rem').value = '0';
+      document.getElementById('inp-max').value = '0';
       document.getElementById('advanced-account-opts').open = false;
       document.getElementById('btn-delete-acc').classList.add('hidden');
       onProviderChange();
@@ -1152,6 +1113,10 @@
     }
 
     function openEditActiveModal() {
+      if (!activeId || accounts.length === 0) {
+        openAddModal();
+        return;
+      }
       openEditModal(activeId);
     }
 
@@ -1171,7 +1136,7 @@
       document.getElementById('inp-endpoint').value = acc.apiEndpoint || '';
       document.getElementById('inp-rem').value = acc.remaining;
       document.getElementById('inp-max').value = acc.max;
-      document.getElementById('btn-delete-acc').classList.toggle('hidden', accounts.length <= 1);
+      document.getElementById('btn-delete-acc').classList.remove('hidden');
       onProviderChange();
       document.getElementById('add-modal').classList.remove('hidden');
     }
@@ -1205,10 +1170,10 @@
       const email = (vaultData && vaultData.email) || inferred.email;
       const apiKey = inferred.apiKey;
       const apiEndpoint = document.getElementById('inp-endpoint').value.trim() || inferred.apiEndpoint;
-      const max = (vaultData && vaultData.max) || Math.max(1, parseInt(document.getElementById('inp-max').value, 10) || 2000000);
+      const max = (vaultData && vaultData.max) || Math.max(0, parseInt(document.getElementById('inp-max').value, 10) || 0);
       const remaining = vaultData
         ? Math.max(0, vaultData.remaining)
-        : Math.max(0, Math.min(max, parseInt(document.getElementById('inp-rem').value, 10) || 0));
+        : Math.max(0, Math.min(max > 0 ? max : Number.MAX_SAFE_INTEGER, parseInt(document.getElementById('inp-rem').value, 10) || 0));
       const used = Math.max(0, max - remaining);
 
       if (editId) {
@@ -1246,19 +1211,13 @@
           vaultKey: vaultData ? rawLogin.toLowerCase() : '',
           remaining,
           max,
-          resetDays: (vaultData && vaultData.resetDays) || 30,
+          resetDays: (vaultData && vaultData.resetDays) || 0,
           quotaLimits: (vaultData && vaultData.quotaLimits) || null,
-          tasks: (vaultData && vaultData.tasks) || {
-            agent: Math.round(used * 0.65),
-            auto: Math.round(used * 0.25),
-            chat: Math.max(0, used - Math.round(used * 0.65) - Math.round(used * 0.25))
-          },
+          tasks: (vaultData && vaultData.tasks) || { agent: 0, auto: 0, chat: 0 },
           models: (vaultData && vaultData.models) || [],
-          trend: (vaultData && vaultData.trend) || [30, 45, 50, 40, 60, 55, 70],
+          trend: (vaultData && vaultData.trend) || [0, 0, 0, 0, 0, 0, 0],
           trendLabels: (vaultData && vaultData.trendLabels) || ['T4', 'T5', 'T6', 'T7', 'CN', 'T2', 'Today'],
-          history: (vaultData && vaultData.history) || [
-            { id: 'tx-' + Date.now(), title: 'Account Logged In', taskType: 'Top-up', delta: remaining, timestamp: new Date().toISOString(), source: getProviderLabel(provider) }
-          ]
+          history: (vaultData && vaultData.history) || []
         };
         accounts.push(newAcc);
         activeId = newAcc.id;
@@ -1277,9 +1236,9 @@
 
     function deleteEditingAccount() {
       const editId = document.getElementById('inp-edit-id').value;
-      if (!editId || accounts.length <= 1) return;
+      if (!editId) return;
       accounts = accounts.filter(a => a.id !== editId);
-      if (activeId === editId) activeId = accounts[0].id;
+      if (activeId === editId) activeId = accounts[0] ? accounts[0].id : '';
       persistAccounts();
       closeAddModal();
       renderDashboard();
@@ -1436,12 +1395,20 @@
         setSyncStatus(`Synced (${localAcc.email}) • ${timeStr}`, false, false);
         return;
       }
+      if (accounts.length === 0) {
+        setSyncStatus('Chưa đăng nhập — hãy thêm tài khoản', false, false);
+        openAddModal();
+        return;
+      }
       syncActiveAccount(false);
     }
 
     renderDashboard();
     autoConnectLocalIdeOnBoot();
-    setInterval(() => renderQuotaLimits(getActiveAccount()), 60000);
+    setInterval(() => {
+      const acc = getActiveAccount();
+      if (acc) renderQuotaLimits(acc);
+    }, 60000);
   </script>
 </body>
 </html>

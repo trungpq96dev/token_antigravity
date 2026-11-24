@@ -230,7 +230,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     remaining = Math.round(maxTokens * (avgModelRemainingPct / 100));
     used = recentTokens > 0 ? recentTokens : Math.max(0, maxTokens - remaining);
   } else {
-    used = recentTokens > 0 ? Math.min(maxTokens, recentTokens) : 579500;
+    used = recentTokens > 0 ? Math.min(maxTokens, recentTokens) : 0;
     remaining = Math.max(0, maxTokens - used);
   }
 
@@ -243,7 +243,7 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
   const hasAnyDaily = rawDaily.some(v => v > 0);
   const trend = hasAnyDaily
     ? rawDaily.map(v => (v === 0 ? 12 : Math.max(16, Math.min(96, Math.round((v / maxDaily) * 92)))))
-    : [55, 78, 46, 62, 28, 52, 85];
+    : [0, 0, 0, 0, 0, 0, 0];
 
   const now = new Date();
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
