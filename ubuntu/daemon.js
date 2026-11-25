@@ -283,9 +283,9 @@ function parseStatusLineJson(statusObj) {
     if (!bucket || typeof bucket !== 'object') return null;
     let pct = null;
     if (typeof bucket.remaining_fraction === 'number') {
-      pct = Math.round(bucket.remaining_fraction * 100);
+      pct = Math.round(bucket.remaining_fraction * 10000) / 100;
     } else if (typeof bucket.remaining_percentage === 'number') {
-      pct = Math.round(bucket.remaining_percentage);
+      pct = Math.round(bucket.remaining_percentage * 100) / 100;
     }
     if (pct === null) return null;
     let resetAt = bucket.reset_time || null;
@@ -349,16 +349,33 @@ async function pollProfile(alias, profileHome, agyBin) {
 
   const fromStatus = parseStatusLineJson(statusObj) || {};
 
-  const geminiWeekly = fromPane.geminiWeekly || fromStatus.geminiWeekly || { pct: 100, resetAt: null };
-  const gemini5h =
-    fromPane.gemini5h ||
-    fromStatus.gemini5h ||
-    (geminiWeekly.pct <= 0 ? { pct: 0, resetAt: geminiWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null });
-  const claudeWeekly = fromPane.claudeWeekly || fromStatus.claudeWeekly || { pct: 100, resetAt: null };
-  const claude5h =
-    fromPane.claude5h ||
-    fromStatus.claude5h ||
-    (claudeWeekly.pct <= 0 ? { pct: 0, resetAt: claudeWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null });
+  const mergeLimitItem = (paneItem, statusItem, fallbackItem) => {
+    if (paneItem && statusItem) {
+      const preferStatusDecimal =
+        Number.isInteger(paneItem.pct) &&
+        !Number.isInteger(statusItem.pct) &&
+        Math.round(statusItem.pct) === paneItem.pct;
+      return {
+        pct: preferStatusDecimal ? statusItem.pct : paneItem.pct,
+        resetAt: paneItem.resetAt || statusItem.resetAt || null,
+        ...(paneItem.disabled ? { disabled: true } : {}),
+      };
+    }
+    return paneItem || statusItem || fallbackItem;
+  };
+
+  const geminiWeekly = mergeLimitItem(fromPane.geminiWeekly, fromStatus.geminiWeekly, { pct: 100, resetAt: null });
+  const gemini5h = mergeLimitItem(
+    fromPane.gemini5h,
+    fromStatus.gemini5h,
+    geminiWeekly.pct <= 0 ? { pct: 0, resetAt: geminiWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null }
+  );
+  const claudeWeekly = mergeLimitItem(fromPane.claudeWeekly, fromStatus.claudeWeekly, { pct: 100, resetAt: null });
+  const claude5h = mergeLimitItem(
+    fromPane.claude5h,
+    fromStatus.claude5h,
+    claudeWeekly.pct <= 0 ? { pct: 0, resetAt: claudeWeekly.resetAt, disabled: true } : { pct: 100, resetAt: null }
+  );
 
   // Detect if profile hasn't completed OAuth login yet
   const unauthenticated = /sign in|authorization url|paste.*code/i.test(paneText) && !fromPane.email && !fromStatus.email;
@@ -369,7 +386,7 @@ async function pollProfile(alias, profileHome, agyBin) {
   const email = fromPane.email || fromStatus.email || `${alias}@gmail.com`;
   const displayName = alias.startsWith('host_') && email.includes('@') ? email.split('@')[0] : alias;
   const plan = fromStatus.plan || 'Google AI Pro';
-  const avgPct = Math.round(((geminiWeekly.pct + gemini5h.pct + claudeWeekly.pct + claude5h.pct) / 4) * 10) / 10;
+  const avgPct = Math.round(((geminiWeekly.pct + gemini5h.pct + claudeWeekly.pct + claude5h.pct) / 4) * 100) / 100;
 
   return {
     alias,
@@ -381,7 +398,7 @@ async function pollProfile(alias, profileHome, agyBin) {
       plan,
       max: 100,
       remaining: avgPct,
-      used: Math.max(0, 100 - avgPct),
+      used: Math.max(0, Math.round((100 - avgPct) * 100) / 100),
       resetDays: 7,
       quotaLimits: {
         gemini: { weekly: geminiWeekly, fiveHour: gemini5h },
@@ -665,12 +682,12 @@ async function runCycle(options = {}) {
       const q = r.payload.quotaLimits;
       console.log(
         `✓ ${r.payload.name} (${r.payload.email}) [${r.payload.plan}] => ` +
-          `Gemini: ${q.gemini.weekly.pct}% W / ${q.gemini.fiveHour.pct}% 5h | ` +
-          `Claude/GPT: ${q.claudeGpt.weekly.pct}% W / ${q.claudeGpt.fiveHour.pct}% 5h`
+          `Gemini: ${q.gemini.weekly.pct}% Tuần / ${q.gemini.fiveHour.pct}% 5h | ` +
+          `Claude/GPT: ${q.claudeGpt.weekly.pct}% Tuần / ${q.claudeGpt.fiveHour.pct}% 5h`
       );
     }
     if (tunnelUrl) {
-      console.log(`⚡ Realtime Tunnel: ${tunnelUrl}`);
+      console.log(`⚡ Đường hầm thời gian thực (Tunnel): ${tunnelUrl}`);
     }
   }
 
@@ -848,7 +865,7 @@ function startRealtimeHttpServer() {
 
       const wantFresh = body.fresh !== false && urlObj.searchParams.get('fresh') !== '0';
       const cached = latestCache.get(alias);
-      if (!wantFresh && cached && Date.now() - cached.fetchedAtMs < 45000) {
+      if (!wantFresh && cached && Date.now() - cached.fetchedAtMs < 75000) {
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ...cached.payload, source: 'ubuntu-realtime', cached: true }));
         return;

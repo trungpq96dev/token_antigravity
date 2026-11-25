@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Antigravity — Token % Quota Dashboard</title>
+  <title>Antigravity — Bảng theo dõi % Hạn mức Token</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
@@ -27,18 +27,44 @@
       background: linear-gradient(90deg, #6366f1 0%, #38bdf8 55%, #22d3ee 100%);
       box-shadow: 0 0 16px rgba(34, 211, 238, 0.65), 0 0 6px rgba(99, 102, 241, 0.4);
     }
+    .progress-glow-warn {
+      background: linear-gradient(90deg, #f59e0b 0%, #facc15 100%);
+      box-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
+    }
     .progress-glow-low {
       background: linear-gradient(90deg, #f43f5e 0%, #fb923c 100%);
       box-shadow: 0 0 16px rgba(244, 63, 94, 0.55);
+    }
+    .progress-glow-disabled {
+      background: linear-gradient(90deg, #334155 0%, #475569 100%);
+    }
+    @keyframes dataFlash {
+      0% {
+        box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.75), 0 0 28px rgba(34, 211, 238, 0.28);
+      }
+      100% {
+        box-shadow: none;
+      }
+    }
+    .data-updated-flash {
+      animation: dataFlash 1.4s ease-out;
     }
   </style>
 </head>
 <body class="min-h-screen flex items-start sm:items-center justify-center p-2.5 pb-20 sm:p-6 bg-[radial-gradient(ellipse_at_top,_#131b31_0%,_#06080e_72%)]">
 
-  <!-- App Window Frame -->
+  <!-- Thông báo nổi khi tự động tải dữ liệu mới -->
+  <div id="new-data-toast" class="pointer-events-none fixed top-3.5 right-3.5 z-50 opacity-0 -translate-y-2 transition-all duration-300">
+    <div class="px-3.5 py-2 rounded-xl bg-emerald-950/95 border border-emerald-400/50 text-emerald-200 text-xs font-medium shadow-[0_10px_30px_rgba(16,185,129,0.28)] flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      <span id="new-data-toast-text">Đã tự động tải dữ liệu mới!</span>
+    </div>
+  </div>
+
+  <!-- Khung ứng dụng chính -->
   <div class="w-full max-w-5xl bg-[#0d111c]/95 border border-slate-800/90 rounded-2xl shadow-[0_25px_75px_rgba(0,0,0,0.8)] overflow-visible flex flex-col sm:flex-row">
 
-    <!-- Left Slim Navigation Rail (Desktop) -->
+    <!-- Thanh điều hướng bên trái (Máy tính) -->
     <aside class="hidden sm:flex sm:w-16 bg-[#0a0d16] sm:border-r border-slate-800/80 rounded-l-2xl p-3 flex-col items-center justify-start gap-5 shrink-0">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/35 via-purple-500/20 to-cyan-400/30 border border-indigo-400/40 flex items-center justify-center shadow-[0_0_16px_rgba(99,102,241,0.35)]">
         <span class="font-bold text-sm tracking-tight bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">AG</span>
@@ -46,7 +72,7 @@
 
       <div class="relative flex items-center">
         <span class="hidden sm:block absolute -left-3 w-1 h-6 rounded-r bg-indigo-400 shadow-[0_0_8px_#818cf8]"></span>
-        <button onclick="renderDashboard()" class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/35 text-indigo-300 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.2)]" title="Token % Quota">
+        <button onclick="renderDashboard()" class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/35 text-indigo-300 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.2)]" title="Theo dõi % Hạn mức Token">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
           </svg>
@@ -54,10 +80,10 @@
       </div>
     </aside>
 
-    <!-- Main Workspace -->
+    <!-- Khu vực nội dung chính -->
     <div class="flex-1 min-w-0 flex flex-col">
 
-      <!-- Top Header Bar with Account Switcher -->
+      <!-- Thanh tiêu đề trên cùng & Bộ chuyển tài khoản -->
       <header class="px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex items-center justify-between sm:justify-start gap-2.5 flex-wrap">
           <div class="flex items-center gap-2.5">
@@ -72,12 +98,12 @@
               <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
             </span>
             <span id="low-alert-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
-              Low Quota
+              Sắp hết hạn mức
             </span>
           </div>
         </div>
 
-        <!-- Account Switcher Dropdown -->
+        <!-- Menu chuyển đổi tài khoản -->
         <div class="relative w-full sm:w-auto" id="account-switcher-wrapper">
           <button onclick="toggleAccountMenu()" class="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 px-3 py-2 sm:py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 text-xs sm:text-sm transition">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -92,11 +118,11 @@
             </svg>
           </button>
 
-          <!-- Dropdown List -->
+          <!-- Danh sách tài khoản -->
           <div id="account-menu" class="hidden absolute left-0 right-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-72 rounded-xl bg-[#111625] border border-slate-700/90 shadow-2xl py-1.5 z-50">
             <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
               <span>Chuyển đổi tài khoản</span>
-              <span id="account-count" class="text-slate-500">0</span>
+              <span id="account-count" class="text-slate-500">0 tài khoản</span>
             </div>
             <div id="account-list" class="max-h-64 overflow-y-auto divide-y divide-slate-800/50"></div>
             <div class="border-t border-slate-800 mt-1 pt-1 px-2 flex flex-col gap-0.5">
@@ -111,87 +137,105 @@
         </div>
       </header>
 
-      <!-- Content Area -->
+      <!-- Khu vực bảng điều khiển -->
       <main class="p-4 sm:p-6 space-y-5 sm:space-y-6">
-        <div class="flex items-start sm:items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-start sm:items-center justify-between gap-2.5">
           <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
-            <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight leading-tight">Remaining Token Quota</h1>
+            <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight leading-tight">Hạn mức Token còn lại</h1>
             <span id="provider-badge" class="inline-flex w-fit items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800/90 text-cyan-300 border border-slate-700/70">Chưa kết nối</span>
           </div>
-          <button onclick="syncActiveAccount(true)" class="px-2.5 py-1.5 sm:px-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-200 hover:text-cyan-300 flex items-center gap-1.5 shrink-0 transition">
-            <svg id="sync-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span id="sync-btn-label">Làm mới</span>
-          </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="auto-refresh-btn" onclick="toggleAutoRefresh()" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/35 text-[11px] sm:text-xs text-emerald-300 flex items-center gap-1.5 transition" title="Tự động kiểm tra và cập nhật ngay khi có dữ liệu mới từ máy chủ">
+              <span id="auto-refresh-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="auto-refresh-label">Tự động tải: Bật</span>
+            </button>
+            <button onclick="syncActiveAccount(true, false)" class="px-2.5 py-1.5 sm:px-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-200 hover:text-cyan-300 flex items-center gap-1.5 shrink-0 transition">
+              <svg id="sync-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span id="sync-btn-label">Làm mới</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Hero Percentage Card -->
-        <section class="hero-glow border border-indigo-500/25 rounded-2xl p-4 sm:p-6 shadow-inner">
+        <!-- Thẻ tổng phần trăm hạn mức -->
+        <section id="hero-card" class="hero-glow border border-indigo-500/25 rounded-2xl p-4 sm:p-6 shadow-inner">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5">
             <div class="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
-              <div class="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-slate-400">OVERALL QUOTA REMAINING</div>
+              <div class="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-slate-400">TỔNG HẠN MỨC CÒN LẠI TRUNG BÌNH</div>
               <div class="flex flex-wrap items-baseline gap-2">
                 <span id="overall-pct-val" class="text-4xl sm:text-5xl font-bold font-mono text-white tracking-tight">0%</span>
-                <span class="text-xs sm:text-base font-mono text-slate-400">/ 100% capacity</span>
+                <span class="text-xs sm:text-base font-mono text-slate-400">/ 100% hạn mức</span>
               </div>
             </div>
 
-            <!-- Action Buttons -->
+            <!-- Nút thao tác -->
             <div class="grid grid-cols-2 md:flex md:flex-col gap-2 w-full md:w-auto shrink-0">
               <button onclick="openPctModal()" class="px-3.5 sm:px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-medium shadow-[0_0_22px_rgba(79,70,229,0.5)] transition text-center">
                 ✎ Cập nhật %
               </button>
               <button onclick="openAlertModal()" class="px-3.5 sm:px-5 py-2.5 rounded-xl bg-slate-900/75 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs sm:text-sm font-medium transition text-center">
-                Alert Settings
+                ⚙ Cài đặt cảnh báo
               </button>
             </div>
           </div>
 
-          <!-- Progress Bar -->
+          <!-- Thanh phần trăm tổng trên thang 100% -->
           <div class="mt-4 sm:mt-5 space-y-2">
-            <div class="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden">
+            <div class="relative w-full h-3 bg-slate-900/95 border border-slate-700/70 rounded-full overflow-hidden">
               <div id="main-progress" class="h-full rounded-full progress-glow-normal transition-all duration-500" style="width: 0%;"></div>
+              <div class="pointer-events-none absolute inset-0 flex justify-evenly">
+                <span class="w-px h-full bg-slate-950/55"></span>
+                <span class="w-px h-full bg-slate-950/55"></span>
+                <span class="w-px h-full bg-slate-950/55"></span>
+              </div>
             </div>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-center justify-between text-[10px] font-mono text-slate-500 select-none">
+              <span>0%</span>
+              <span>25%</span>
+              <span>50%</span>
+              <span>75%</span>
+              <span id="overall-used-label" class="text-slate-300">100%</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-300 leading-relaxed pt-0.5">
               <span id="percent-summary" class="break-words">Chưa có dữ liệu — hãy đăng nhập</span>
-              <span id="reset-summary" class="text-slate-400 shrink-0">Next refresh: --</span>
+              <span id="reset-summary" class="text-slate-400 shrink-0">Làm mới tiếp theo: --</span>
             </div>
           </div>
         </section>
 
-        <!-- Empty State (shown when no account logged in or no quota limits) -->
+        <!-- Trạng thái trống khi chưa đăng nhập -->
         <section id="empty-state-box" class="hidden rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/40 p-6 text-center space-y-3">
           <div class="text-sm font-medium text-slate-200">Chưa có dữ liệu % token cho tài khoản này</div>
-          <p class="text-xs text-slate-400 max-w-md mx-auto">Nhấn nút bên dưới để tự động nhận diện từ Antigravity IDE hoặc đăng nhập bằng email đã đồng bộ.</p>
+          <p class="text-xs text-slate-400 max-w-md mx-auto">Nhấn nút bên dưới để tự động nhận diện từ Antigravity IDE hoặc đăng nhập bằng email đã đồng bộ từ máy chủ Ubuntu.</p>
           <button onclick="openAddModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition">
             + Đăng nhập / Thêm tài khoản
           </button>
         </section>
 
-        <!-- Antigravity Percentage Limits (Gemini & Claude/GPT) -->
+        <!-- Thẻ chi tiết % hạn mức (Gemini & Claude/GPT) kèm thanh phần trăm trên 100% -->
         <section id="quota-limits-section" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Rendered by JS -->
+          <!-- Được vẽ bởi JavaScript -->
         </section>
 
-        <!-- Per-Model Quota Pills -->
+        <!-- Hạn mức chi tiết từng mô hình -->
         <section id="model-quota-section" class="hidden pt-2 border-t border-slate-800/70 space-y-2.5">
           <div class="flex items-center justify-between">
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Model Quota Status (Claude / Gemini / GPT)</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Hạn mức chi tiết từng mô hình (Claude / Gemini / GPT)</h2>
             <span id="model-quota-count" class="text-[11px] text-slate-500"></span>
           </div>
-          <div id="model-quota-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+          <div id="model-quota-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5"></div>
         </section>
       </main>
 
-      <!-- Footer -->
+      <!-- Chân trang -->
       <footer class="px-4 py-3 sm:px-6 sm:py-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-400">
         <div class="flex items-center gap-2">
           <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="sync-status-text">Sẵn sàng</span>
         </div>
         <button onclick="openHistoryModal()" class="text-slate-300 hover:text-cyan-300 transition">
-          View sync history →
+          Xem lịch sử đồng bộ →
         </button>
       </footer>
     </div>
@@ -205,7 +249,7 @@
         <button onclick="closeAddModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
 
-      <!-- 1-Click Auto Detect from Antigravity IDE -->
+      <!-- Tự động nhận diện 1 chạm từ Antigravity IDE -->
       <div id="auto-detect-box" class="space-y-2">
         <button type="button" onclick="detectFromLocalIde()" id="btn-auto-detect" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600/90 to-cyan-600/90 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.22)] transition">
           <span>⚡ Tự động nhận diện từ Antigravity IDE</span>
@@ -222,12 +266,12 @@
       <form onsubmit="saveAccountForm(event)" class="space-y-3 text-xs">
         <input type="hidden" id="inp-edit-id" value="" />
         <div>
-          <label class="block text-slate-300 mb-1 font-medium">Email hoặc API Key</label>
+          <label class="block text-slate-300 mb-1 font-medium">Email hoặc Mã khóa API (API Key)</label>
           <div class="flex gap-2">
             <input id="inp-login-input" required oninput="onSmartInputChange()" placeholder="VD: tenban@gmail.com hoặc dán API Key..." class="flex-1 px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400" />
             <button type="button" onclick="toggleSmartInputMask()" id="btn-toggle-mask" class="hidden px-2.5 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Hiện</button>
           </div>
-          <div id="smart-detect-hint" class="mt-1.5 text-[11px] text-cyan-300/90">Nhập email để tự mở khóa dữ liệu % đã đồng bộ trên Cloud Vault hoặc kết nối API Key.</div>
+          <div id="smart-detect-hint" class="mt-1.5 text-[11px] text-cyan-300/90">Nhập email để tự mở khóa dữ liệu % đã đồng bộ trên máy chủ Ubuntu / Cloud Vault hoặc kết nối API Key.</div>
         </div>
 
         <div>
@@ -235,10 +279,10 @@
           <input id="inp-name" placeholder="VD: Tài khoản chính" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400" />
         </div>
 
-        <!-- Collapsed Advanced Options -->
+        <!-- Tùy chọn nâng cao thu gọn -->
         <details id="advanced-account-opts" class="rounded-xl bg-slate-900/60 border border-slate-800 px-3 py-2">
           <summary class="cursor-pointer text-[11px] font-medium text-slate-400 hover:text-slate-200 select-none">
-            Tùy chỉnh nguồn &amp; % thủ công (không bắt buộc)
+            Tùy chỉnh nguồn &amp; gói cước (không bắt buộc)
           </summary>
           <div class="pt-3 space-y-2.5">
             <div class="grid grid-cols-2 gap-3">
@@ -246,26 +290,26 @@
                 <label class="block text-slate-400 mb-1">Nguồn dữ liệu</label>
                 <select id="inp-provider" onchange="onProviderChange()" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
                   <option value="auto">Tự động nhận diện</option>
-                  <option value="cloud-vault">Ubuntu Realtime / Cloud Sync</option>
-                  <option value="local">Local Antigravity IDE</option>
+                  <option value="cloud-vault">Đồng bộ Ubuntu / Cloud</option>
+                  <option value="local">Antigravity IDE trên máy</option>
                   <option value="openrouter">OpenRouter API</option>
                   <option value="gemini">Google Gemini API</option>
-                  <option value="custom">Custom Endpoint</option>
-                  <option value="manual">Manual %</option>
+                  <option value="custom">API tùy chỉnh</option>
+                  <option value="manual">Nhập % thủ công</option>
                 </select>
               </div>
               <div>
                 <label class="block text-slate-400 mb-1">Gói cước</label>
                 <select id="inp-plan" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
                   <option value="Google AI Pro">Google AI Pro</option>
-                  <option value="Pro Plan">Pro Plan</option>
-                  <option value="Ultra Plan">Ultra Plan</option>
-                  <option value="Free Tier">Free Tier</option>
+                  <option value="Pro Plan">Gói Pro</option>
+                  <option value="Ultra Plan">Gói Ultra</option>
+                  <option value="Free Tier">Gói Miễn phí</option>
                 </select>
               </div>
             </div>
             <div id="endpoint-group" class="hidden">
-              <label class="block text-slate-400 mb-1">Custom API Endpoint URL</label>
+              <label class="block text-slate-400 mb-1">Đường dẫn API tùy chỉnh (URL)</label>
               <input id="inp-endpoint" type="url" placeholder="https://api.example.com/usage" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
             </div>
           </div>
@@ -282,30 +326,31 @@
     </div>
   </div>
 
-  <!-- Modal Cập nhật % Quota -->
+  <!-- Modal Cập nhật % Hạn mức chi tiết -->
   <div id="pct-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="w-full max-w-md bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold text-white">Cập nhật % Quota còn lại</h3>
+        <h3 class="text-base font-semibold text-white">Cập nhật % Hạn mức còn lại</h3>
         <button onclick="closePctModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
+      <p class="text-[11px] text-slate-400">Hỗ trợ nhập số thập phân chi tiết giống máy chủ (ví dụ: <span class="font-mono text-cyan-300">89.96</span>).</p>
       <form onsubmit="savePctModal(event)" class="space-y-3 text-xs">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-400 mb-1">Gemini Weekly (%)</label>
-            <input id="inp-gem-w" type="number" min="0" max="100" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+            <label class="block text-slate-400 mb-1">Gemini — Tuần (%)</label>
+            <input id="inp-gem-w" type="number" min="0" max="100" step="0.01" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Gemini 5-Hour (%)</label>
-            <input id="inp-gem-5h" type="number" min="0" max="100" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+            <label class="block text-slate-400 mb-1">Gemini — 5 Giờ (%)</label>
+            <input id="inp-gem-5h" type="number" min="0" max="100" step="0.01" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Claude / GPT Weekly (%)</label>
-            <input id="inp-cla-w" type="number" min="0" max="100" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+            <label class="block text-slate-400 mb-1">Claude / GPT — Tuần (%)</label>
+            <input id="inp-cla-w" type="number" min="0" max="100" step="0.01" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Claude / GPT 5-Hour (%)</label>
-            <input id="inp-cla-5h" type="number" min="0" max="100" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
+            <label class="block text-slate-400 mb-1">Claude / GPT — 5 Giờ (%)</label>
+            <input id="inp-cla-5h" type="number" min="0" max="100" step="0.01" required class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-cyan-400" />
           </div>
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -316,11 +361,11 @@
     </div>
   </div>
 
-  <!-- Modal Alert Settings -->
+  <!-- Modal Cài đặt cảnh báo & Tự động tải mới -->
   <div id="alert-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="w-full max-w-sm bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold text-white">Alert Settings</h3>
+        <h3 class="text-base font-semibold text-white">Cài đặt cảnh báo &amp; Tự động tải</h3>
         <button onclick="closeAlertModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <form onsubmit="saveAlertSettings(event)" class="space-y-4 text-xs">
@@ -330,9 +375,25 @@
             <span id="alert-threshold-label" class="font-mono text-cyan-300 font-semibold">20%</span>
           </div>
           <input id="inp-alert-threshold" type="range" min="5" max="50" step="5" value="20" oninput="document.getElementById('alert-threshold-label').textContent = this.value + '%'" class="w-full accent-cyan-400" />
-          <p class="text-[11px] text-slate-400 mt-1">Thanh tiến trình sẽ chuyển sang màu cảnh báo cam-đỏ khi % trung bình thấp hơn ngưỡng này.</p>
+          <p class="text-[11px] text-slate-400 mt-1">Thanh tiến trình sẽ chuyển sang màu cam-đỏ khi % còn lại thấp hơn ngưỡng này.</p>
         </div>
-        <div class="flex justify-end gap-2">
+
+        <div class="border-t border-slate-800 pt-3 space-y-3">
+          <label class="flex items-center justify-between gap-3 cursor-pointer">
+            <span class="text-slate-200 font-medium">Tự động tải lại khi có dữ liệu mới</span>
+            <input id="inp-auto-refresh" type="checkbox" checked class="w-4 h-4 accent-emerald-400 rounded" />
+          </label>
+          <div>
+            <label class="block text-slate-400 mb-1">Chu kỳ kiểm tra dữ liệu mới</label>
+            <select id="inp-refresh-interval" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+              <option value="15">Mỗi 15 giây (Nhanh — Khuyên dùng)</option>
+              <option value="30">Mỗi 30 giây (Cân bằng)</option>
+              <option value="60">Mỗi 60 giây (Tiết kiệm)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-1">
           <button type="button" onclick="closeAlertModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Hủy</button>
           <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">Lưu cài đặt</button>
         </div>
@@ -340,19 +401,19 @@
     </div>
   </div>
 
-  <!-- Modal History -->
+  <!-- Modal Lịch sử đồng bộ -->
   <div id="history-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="w-full max-w-lg bg-[#111625] border border-slate-700 rounded-2xl p-5 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-base font-semibold text-white">Sync &amp; Activity History</h3>
+          <h3 class="text-base font-semibold text-white">Lịch sử đồng bộ &amp; Hoạt động</h3>
           <p id="history-acc-subtitle" class="text-[11px] text-slate-400">--</p>
         </div>
         <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <div id="history-list" class="max-h-72 overflow-y-auto divide-y divide-slate-800/70 text-xs"></div>
       <div class="flex items-center justify-between pt-1">
-        <button type="button" onclick="exportAccountHistory()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-medium transition">Export JSON</button>
+        <button type="button" onclick="exportAccountHistory()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-medium transition">Xuất tệp JSON</button>
         <button type="button" onclick="closeHistoryModal()" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium">Đóng</button>
       </div>
     </div>
@@ -362,6 +423,8 @@
     const STORAGE_ACCOUNTS_KEY = 'ag_accounts_v2';
     const STORAGE_ACTIVE_KEY = 'ag_active_id_v2';
     const STORAGE_THRESHOLD_KEY = 'ag_alert_threshold';
+    const STORAGE_AUTO_REFRESH_KEY = 'ag_auto_refresh';
+    const STORAGE_REFRESH_INTERVAL_KEY = 'ag_refresh_interval_sec';
 
     function loadStoredAccounts() {
       localStorage.removeItem('ag_accounts');
@@ -370,7 +433,7 @@
         const parsed = JSON.parse(localStorage.getItem(STORAGE_ACCOUNTS_KEY));
         if (Array.isArray(parsed)) return parsed.filter(Boolean);
       } catch {
-        // Ignore corrupted localStorage
+        // Bỏ qua nếu localStorage lỗi định dạng
       }
       return [];
     }
@@ -378,6 +441,20 @@
     let accounts = loadStoredAccounts();
     let activeId = localStorage.getItem(STORAGE_ACTIVE_KEY) || (accounts[0] ? accounts[0].id : '');
     let alertThreshold = Number(localStorage.getItem(STORAGE_THRESHOLD_KEY) || 20);
+    let autoRefreshEnabled = localStorage.getItem(STORAGE_AUTO_REFRESH_KEY) !== '0';
+    let autoRefreshIntervalSec = Math.max(10, Number(localStorage.getItem(STORAGE_REFRESH_INTERVAL_KEY) || 15));
+
+    let syncInFlight = null;
+    let lastAutoSyncAtMs = 0;
+    let toastTimer = null;
+
+    // Bộ nhớ đệm ETag & giải mã Cloud Vault để kiểm tra dữ liệu mới tốn 0 hạn mức GitHub API
+    const vaultHttpCache = {
+      etag: '',
+      versionKey: '',
+      rawVault: null,
+      unlockedByPassphrase: new Map()
+    };
 
     function persistAccounts() {
       localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(accounts));
@@ -394,26 +471,65 @@
     }
 
     function formatNum(n) {
-      return Number(n || 0).toLocaleString('en-US');
+      return Number(n || 0).toLocaleString('vi-VN');
+    }
+
+    function roundPct2(val) {
+      const n = Number(val);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+    }
+
+    function formatPct(val) {
+      const rounded = roundPct2(val);
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+    }
+
+    function formatPlanLabel(plan) {
+      if (!plan) return '--';
+      const map = {
+        'Pro Plan': 'Gói Pro',
+        'Ultra Plan': 'Gói Ultra',
+        'Free Tier': 'Gói Miễn phí'
+      };
+      return map[plan] || plan;
+    }
+
+    function translateHistoryItem(item) {
+      const title = String(item.title || '').replace(/^Session\s+#/i, 'Phiên #');
+      const taskMap = {
+        'Agent & Reasoning': 'Tác nhân & Suy luận',
+        'Code Autocomplete': 'Gợi ý mã nguồn',
+        'Quick Chat': 'Trò chuyện nhanh'
+      };
+      const sourceMap = {
+        'Local Telemetry': 'Đo lường trên máy',
+        IDE: 'IDE trên máy'
+      };
+      return {
+        title,
+        taskType: taskMap[item.taskType] || item.taskType || 'Hoạt động',
+        source: sourceMap[item.source] || item.source || 'Hệ thống'
+      };
     }
 
     function getProviderLabel(provider, acc = null) {
       if (acc && acc.liveEndpoint && acc.liveEndpoint.url) {
-        return '⚡ Realtime Ubuntu';
+        return '⚡ Ubuntu Thời gian thực';
       }
       if (acc && !acc.quotaLimits && !(Number(acc.max) > 0) && (provider === 'local' || provider === 'cloud-vault')) {
         return 'Chưa đồng bộ';
       }
       const map = {
-        'ubuntu-realtime': '⚡ Realtime Ubuntu',
-        'cloud-vault': 'Cloud Sync',
-        local: 'Local IDE Sync',
+        'ubuntu-realtime': '⚡ Ubuntu Thời gian thực',
+        'cloud-vault': 'Đồng bộ Cloud',
+        local: 'Đồng bộ IDE trên máy',
         openrouter: 'OpenRouter API',
         gemini: 'Gemini API',
-        custom: 'Custom API',
-        manual: 'Manual %'
+        custom: 'API tùy chỉnh',
+        manual: 'Nhập % thủ công'
       };
-      return map[provider] || 'Manual %';
+      return map[provider] || 'Nhập % thủ công';
     }
 
     function getActiveAccount() {
@@ -429,7 +545,7 @@
     function resolveLimitPct(item) {
       if (!item) return 0;
       if (item.resetAt && new Date(item.resetAt).getTime() <= Date.now()) return 100;
-      return Math.max(0, Math.min(100, Math.round(Number(item.pct) || 0)));
+      return roundPct2(item.pct);
     }
 
     function getAccountPercentages(acc) {
@@ -438,53 +554,82 @@
         const g5 = resolveLimitPct(acc.quotaLimits.gemini.fiveHour);
         const cW = resolveLimitPct(acc.quotaLimits.claudeGpt.weekly);
         const c5 = resolveLimitPct(acc.quotaLimits.claudeGpt.fiveHour);
-        const avg = Math.round(((gW + g5 + cW + c5) / 4) * 10) / 10;
+        const avg = roundPct2((gW + g5 + cW + c5) / 4);
         return { hasLimits: true, hasAnyData: true, gW, g5, cW, c5, avg };
       }
       if (acc && Number(acc.max) > 0) {
-        const pct = Math.round((Math.max(0, Number(acc.remaining) || 0) / Number(acc.max)) * 1000) / 10;
+        const pct = roundPct2((Math.max(0, Number(acc.remaining) || 0) / Number(acc.max)) * 100);
         return { hasLimits: false, hasAnyData: true, gW: pct, g5: pct, cW: pct, c5: pct, avg: pct };
       }
       return { hasLimits: false, hasAnyData: false, gW: 0, g5: 0, cW: 0, c5: 0, avg: 0 };
     }
 
+    function getAccountDataFingerprint(acc) {
+      if (!acc) return '';
+      const q = acc.quotaLimits || {};
+      const modelsSig = Array.isArray(acc.models)
+        ? acc.models.map(m => `${m.name}:${roundPct2(m.remainingPct)}`).join(',')
+        : '';
+      return JSON.stringify({
+        plan: acc.plan || '',
+        remaining: roundPct2(acc.remaining),
+        max: Number(acc.max || 0),
+        gw: q.gemini?.weekly ? [roundPct2(q.gemini.weekly.pct), q.gemini.weekly.resetAt || ''] : null,
+        g5: q.gemini?.fiveHour ? [roundPct2(q.gemini.fiveHour.pct), q.gemini.fiveHour.resetAt || '', Boolean(q.gemini.fiveHour.disabled)] : null,
+        cw: q.claudeGpt?.weekly ? [roundPct2(q.claudeGpt.weekly.pct), q.claudeGpt.weekly.resetAt || ''] : null,
+        c5: q.claudeGpt?.fiveHour ? [roundPct2(q.claudeGpt.fiveHour.pct), q.claudeGpt.fiveHour.resetAt || '', Boolean(q.claudeGpt.fiveHour.disabled)] : null,
+        modelsSig
+      });
+    }
+
     function formatShortRefresh(resetAt) {
-      if (!resetAt) return 'At 100% capacity';
+      if (!resetAt) return 'Đầy 100%';
       const diffMs = new Date(resetAt).getTime() - Date.now();
-      if (!Number.isFinite(diffMs) || diffMs <= 0) return 'Refreshed (100%)';
+      if (!Number.isFinite(diffMs) || diffMs <= 0) return 'Đã làm mới (100%)';
       const totalMins = Math.floor(diffMs / 60000);
       const days = Math.floor(totalMins / (24 * 60));
       const hours = Math.floor((totalMins % (24 * 60)) / 60);
       const mins = totalMins % 60;
-      if (days > 0) return `${days}d ${hours}h`;
-      if (hours > 0) return `${hours}h ${mins}m`;
-      return `${mins}m`;
+      if (days > 0) return `${days} ngày ${hours} giờ`;
+      if (hours > 0) return `${hours} giờ ${mins} phút`;
+      if (mins > 0) return `${mins} phút`;
+      return 'chưa đầy 1 phút';
     }
 
     function formatRefreshCountdown(resetAt, unitLabel) {
-      if (!resetAt) return 'Five-hour capacity is at full 100%.';
+      if (!resetAt) return `Hạn mức ${unitLabel} đang đầy 100%.`;
       const diffMs = new Date(resetAt).getTime() - Date.now();
       if (!Number.isFinite(diffMs) || diffMs <= 0) {
-        return `Your ${unitLabel} limit has refreshed to 100%.`;
+        return `Hạn mức ${unitLabel} của bạn đã được làm mới đầy 100%.`;
       }
       const totalMins = Math.floor(diffMs / 60000);
       const days = Math.floor(totalMins / (24 * 60));
       const hours = Math.floor((totalMins % (24 * 60)) / 60);
       const mins = totalMins % 60;
       const parts = [];
-      if (days > 0) parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
-      if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
-      if (days === 0 && mins > 0) parts.push(`${mins} ${mins === 1 ? 'minute' : 'minutes'}`);
-      if (parts.length === 0) parts.push('less than 1 minute');
-      return `You have used some of your ${unitLabel} limit, it will fully refresh in ${parts.join(', ')}.`;
+      if (days > 0) parts.push(`${days} ngày`);
+      if (hours > 0) parts.push(`${hours} giờ`);
+      if (days === 0 && mins > 0) parts.push(`${mins} phút`);
+      if (parts.length === 0) parts.push('chưa đầy 1 phút');
+      return `Đã dùng một phần hạn mức ${unitLabel}, sẽ làm mới đầy 100% sau ${parts.join(' ')}.`;
     }
 
-    function buildRingSvg(pct) {
-      const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+    function getBarGlowClass(pct, disabled = false) {
+      if (disabled) return 'progress-glow-disabled';
+      const val = roundPct2(pct);
+      if (val <= alertThreshold) return 'progress-glow-low';
+      if (val <= 55) return 'progress-glow-warn';
+      return 'progress-glow-normal';
+    }
+
+    function buildRingSvg(pct, disabled = false) {
+      const clamped = roundPct2(pct);
       const r = 13;
       const c = 2 * Math.PI * r;
       const offset = c * (1 - clamped / 100);
-      const stroke = clamped <= 20 ? '#fb7185' : (clamped <= 55 ? '#facc15' : '#4ade80');
+      const stroke = disabled
+        ? '#64748b'
+        : (clamped <= alertThreshold ? '#fb7185' : (clamped <= 55 ? '#facc15' : '#4ade80'));
       return `
         <svg class="w-8 h-8 -rotate-90 shrink-0" viewBox="0 0 32 32">
           <circle cx="16" cy="16" r="${r}" fill="none" stroke="rgba(148,163,184,0.22)" stroke-width="3"></circle>
@@ -494,38 +639,72 @@
       `;
     }
 
+    function buildPctBarOn100(pct, disabled = false) {
+      const clamped = roundPct2(pct);
+      const usedPct = roundPct2(100 - clamped);
+      const barCls = getBarGlowClass(clamped, disabled);
+      return `
+        <div class="mt-3 space-y-1.5">
+          <div class="relative w-full h-2.5 rounded-full bg-slate-900/95 border border-slate-700/60 overflow-hidden">
+            <div class="h-full rounded-full ${barCls} transition-all duration-500" style="width: ${clamped.toFixed(2)}%;"></div>
+            <div class="pointer-events-none absolute inset-0 flex justify-evenly">
+              <span class="w-px h-full bg-slate-950/55"></span>
+              <span class="w-px h-full bg-slate-950/55"></span>
+              <span class="w-px h-full bg-slate-950/55"></span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <span>Đã dùng: ${formatPct(usedPct)}%</span>
+            <span class="text-slate-300">Còn lại: ${formatPct(clamped)}% / 100%</span>
+          </div>
+        </div>
+      `;
+    }
+
     function renderLimitCard(title, weekly, fiveHour) {
       const wPct = resolveLimitPct(weekly);
       const hPct = resolveLimitPct(fiveHour);
       const is5hDisabled = Boolean((fiveHour && fiveHour.disabled) || (wPct <= 0 && hPct <= 0));
-      const wDesc = wPct >= 100 ? 'Weekly limit is at full 100%.' : formatRefreshCountdown(weekly && weekly.resetAt, 'weekly');
+      const wDesc = wPct >= 100 ? 'Hạn mức tuần đang đầy 100%.' : formatRefreshCountdown(weekly && weekly.resetAt, 'tuần');
       const hDesc = is5hDisabled
-        ? 'Disabled: You have hit your weekly limit, the 5-hour limit does not currently apply.'
-        : (hPct >= 100 ? 'Five-hour limit is at full 100%.' : formatRefreshCountdown(fiveHour && fiveHour.resetAt, '5-hour'));
+        ? 'Tạm khóa: Bạn đã dùng hết hạn mức tuần nên hạn mức 5 giờ hiện không áp dụng.'
+        : (hPct >= 100 ? 'Hạn mức 5 giờ đang đầy 100%.' : formatRefreshCountdown(fiveHour && fiveHour.resetAt, '5 giờ'));
 
       return `
         <div class="space-y-2">
           <div class="text-xs font-semibold text-slate-200">${escapeHtml(title)}</div>
-          <div class="rounded-xl bg-[#0e1320]/95 border border-slate-800/90 divide-y divide-slate-800/80">
-            <div class="p-3.5 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="text-xs font-medium text-slate-100">Weekly Limit Remaining</div>
-                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(wDesc)}</div>
+          <div class="limit-card-box rounded-xl bg-[#0e1320]/95 border border-slate-800/90 divide-y divide-slate-800/80">
+            <div class="p-3.5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-xs font-medium text-slate-100">Hạn mức Tuần còn lại</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(wDesc)}</div>
+                </div>
+                <div class="flex items-center gap-2.5 shrink-0">
+                  <div class="text-right">
+                    <span class="font-mono text-sm font-semibold text-white">${formatPct(wPct)}%</span>
+                    <span class="block text-[10px] font-mono text-slate-500">/ 100%</span>
+                  </div>
+                  ${buildRingSvg(wPct, false)}
+                </div>
               </div>
-              <div class="flex items-center gap-2.5 shrink-0">
-                <span class="font-mono text-sm font-semibold text-white">${wPct}%</span>
-                ${buildRingSvg(wPct)}
-              </div>
+              ${buildPctBarOn100(wPct, false)}
             </div>
-            <div class="p-3.5 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="text-xs font-medium text-slate-100">Five Hour Limit Remaining</div>
-                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(hDesc)}</div>
+            <div class="p-3.5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-xs font-medium text-slate-100">Hạn mức 5 Giờ còn lại</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${escapeHtml(hDesc)}</div>
+                </div>
+                <div class="flex items-center gap-2.5 shrink-0">
+                  <div class="text-right">
+                    <span class="font-mono text-sm font-semibold ${is5hDisabled ? 'text-slate-400' : 'text-white'}">${formatPct(hPct)}%</span>
+                    <span class="block text-[10px] font-mono text-slate-500">/ 100%</span>
+                  </div>
+                  ${buildRingSvg(hPct, is5hDisabled)}
+                </div>
               </div>
-              <div class="flex items-center gap-2.5 shrink-0">
-                <span class="font-mono text-sm font-semibold text-white">${hPct}%</span>
-                ${buildRingSvg(hPct)}
-              </div>
+              ${buildPctBarOn100(hPct, is5hDisabled)}
             </div>
           </div>
         </div>
@@ -545,8 +724,8 @@
       el.classList.remove('hidden');
       const limits = acc.quotaLimits;
       el.innerHTML =
-        renderLimitCard('Gemini Models', limits.gemini.weekly, limits.gemini.fiveHour) +
-        renderLimitCard('Claude and GPT models', limits.claudeGpt.weekly, limits.claudeGpt.fiveHour);
+        renderLimitCard('Các mô hình Gemini', limits.gemini.weekly, limits.gemini.fiveHour) +
+        renderLimitCard('Các mô hình Claude & GPT', limits.claudeGpt.weekly, limits.claudeGpt.fiveHour);
     }
 
     function renderModelQuotas(acc) {
@@ -559,22 +738,80 @@
         return;
       }
       sec.classList.remove('hidden');
-      countEl.textContent = `${models.length} models`;
+      countEl.textContent = `${models.length} mô hình`;
       grid.innerHTML = models.map(m => {
-        const pct = Math.max(0, Math.min(100, Number(m.remainingPct) || 0));
-        const colorCls = pct < 20 ? 'text-rose-300' : 'text-cyan-300';
+        const pct = roundPct2(m.remainingPct);
+        const colorCls = pct <= alertThreshold ? 'text-rose-300' : (pct <= 55 ? 'text-amber-300' : 'text-cyan-300');
+        const barCls = getBarGlowClass(pct, false);
         return `
-          <div class="px-2.5 py-2 rounded-xl bg-slate-900/80 border border-slate-800/90 flex items-center justify-between gap-2 text-[11px]">
-            <span class="text-slate-300 truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
-            <span class="font-mono font-semibold shrink-0 ${colorCls}">${pct.toFixed(0)}%</span>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90 space-y-1.5 text-[11px]">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-slate-200 font-medium truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
+              <span class="font-mono font-semibold shrink-0 ${colorCls}">${formatPct(pct)}% <span class="text-[10px] text-slate-500 font-normal">/ 100%</span></span>
+            </div>
+            <div class="relative w-full h-1.5 rounded-full bg-slate-800/95 overflow-hidden">
+              <div class="h-full rounded-full ${barCls} transition-all duration-500" style="width: ${pct.toFixed(2)}%;"></div>
+            </div>
           </div>
         `;
       }).join('');
     }
 
-    function renderDashboard() {
+    function updateAutoRefreshButtonUI() {
+      const btn = document.getElementById('auto-refresh-btn');
+      const dot = document.getElementById('auto-refresh-dot');
+      const label = document.getElementById('auto-refresh-label');
+      if (!btn || !dot || !label) return;
+      if (autoRefreshEnabled) {
+        btn.className = 'px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/35 text-[11px] sm:text-xs text-emerald-300 flex items-center gap-1.5 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        label.textContent = `Tự động tải: Bật (${autoRefreshIntervalSec}s)`;
+      } else {
+        btn.className = 'px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] sm:text-xs text-slate-400 flex items-center gap-1.5 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        label.textContent = 'Tự động tải: Tắt';
+      }
+    }
+
+    function toggleAutoRefresh() {
+      autoRefreshEnabled = !autoRefreshEnabled;
+      localStorage.setItem(STORAGE_AUTO_REFRESH_KEY, autoRefreshEnabled ? '1' : '0');
+      updateAutoRefreshButtonUI();
+      if (autoRefreshEnabled) {
+        syncActiveAccount(false, true);
+      }
+    }
+
+    function showNewDataToast(message) {
+      const toast = document.getElementById('new-data-toast');
+      const textEl = document.getElementById('new-data-toast-text');
+      if (!toast || !textEl) return;
+      textEl.textContent = message || 'Đã tự động tải dữ liệu mới!';
+      toast.classList.remove('opacity-0', '-translate-y-2');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-2');
+      }, 3800);
+    }
+
+    function triggerDataHighlight() {
+      const targets = [
+        document.getElementById('hero-card'),
+        ...document.querySelectorAll('.limit-card-box')
+      ].filter(Boolean);
+      for (const el of targets) {
+        el.classList.remove('data-updated-flash');
+        void el.offsetWidth;
+        el.classList.add('data-updated-flash');
+      }
+    }
+
+    function renderDashboard(highlightChange = false) {
       const acc = getActiveAccount();
       persistAccounts();
+      updateAutoRefreshButtonUI();
 
       if (!acc) {
         document.getElementById('plan-name').textContent = '--';
@@ -584,8 +821,9 @@
         document.getElementById('provider-badge').textContent = 'Chưa kết nối';
         document.getElementById('overall-pct-val').textContent = '0%';
         document.getElementById('main-progress').style.width = '0%';
+        document.getElementById('overall-used-label').textContent = '100%';
         document.getElementById('percent-summary').textContent = 'Chưa có dữ liệu — hãy đăng nhập';
-        document.getElementById('reset-summary').textContent = 'Next refresh: --';
+        document.getElementById('reset-summary').textContent = 'Làm mới tiếp theo: --';
         document.getElementById('low-alert-pill').classList.add('hidden');
         renderAccountMenu();
         renderQuotaLimits(null);
@@ -593,7 +831,7 @@
         return;
       }
 
-      document.getElementById('plan-name').textContent = acc.plan || '--';
+      document.getElementById('plan-name').textContent = formatPlanLabel(acc.plan);
       document.getElementById('current-avatar').textContent = (acc.name || 'A').charAt(0).toUpperCase();
       document.getElementById('current-acc-name').textContent = acc.name;
       document.getElementById('current-acc-email').textContent = acc.email;
@@ -601,30 +839,42 @@
 
       const { hasLimits, hasAnyData, gW, g5, cW, c5, avg } = getAccountPercentages(acc);
       document.getElementById('overall-pct-val').textContent = hasAnyData
-        ? `${avg.toFixed(avg % 1 === 0 ? 0 : 1)}%`
+        ? `${formatPct(avg)}%`
         : '--%';
-      document.getElementById('main-progress').style.width = hasAnyData ? `${avg.toFixed(1)}%` : '0%';
+      document.getElementById('main-progress').style.width = hasAnyData ? `${avg.toFixed(2)}%` : '0%';
+      document.getElementById('overall-used-label').textContent = hasAnyData
+        ? `100% (Đã dùng ${formatPct(roundPct2(100 - avg))}%)`
+        : '100%';
 
       if (hasLimits) {
-        const gemAvg = Math.round((gW + g5) / 2);
-        const claAvg = Math.round((cW + c5) / 2);
-        document.getElementById('percent-summary').textContent = `Gemini: ${gW}% W / ${g5}% 5h (Avg ${gemAvg}%) • Claude/GPT: ${cW}% W / ${c5}% 5h (Avg ${claAvg}%)`;
+        const gemAvg = roundPct2((gW + g5) / 2);
+        const claAvg = roundPct2((cW + c5) / 2);
+        document.getElementById('percent-summary').textContent =
+          `Gemini: ${formatPct(gW)}% Tuần / ${formatPct(g5)}% 5h (TB ${formatPct(gemAvg)}%) • ` +
+          `Claude/GPT: ${formatPct(cW)}% Tuần / ${formatPct(c5)}% 5h (TB ${formatPct(claAvg)}%)`;
         const next5h = acc.quotaLimits.gemini.fiveHour.resetAt || acc.quotaLimits.claudeGpt.fiveHour.resetAt;
-        document.getElementById('reset-summary').textContent = next5h ? `Next refresh: ${formatShortRefresh(next5h)}` : 'All 5h limits full';
+        document.getElementById('reset-summary').textContent = next5h
+          ? `Làm mới tiếp theo: ${formatShortRefresh(next5h)}`
+          : 'Tất cả hạn mức 5 giờ đều đầy 100%';
       } else if (hasAnyData) {
-        document.getElementById('percent-summary').textContent = `${avg}% remaining`;
-        document.getElementById('reset-summary').textContent = acc.resetDays ? `Resets in ${acc.resetDays} days` : 'Next refresh: --';
+        document.getElementById('percent-summary').textContent = `Còn lại ${formatPct(avg)}% trên 100% hạn mức`;
+        document.getElementById('reset-summary').textContent = acc.resetDays
+          ? `Làm mới sau ${acc.resetDays} ngày`
+          : 'Làm mới tiếp theo: --';
       } else {
-        document.getElementById('percent-summary').textContent = 'Chưa có dữ liệu đồng bộ từ Ubuntu / Cloud Vault';
-        document.getElementById('reset-summary').textContent = 'Next refresh: --';
+        document.getElementById('percent-summary').textContent = 'Chưa có dữ liệu đồng bộ từ máy chủ Ubuntu / Cloud Vault';
+        document.getElementById('reset-summary').textContent = 'Làm mới tiếp theo: --';
       }
 
       const bar = document.getElementById('main-progress');
       const alertPill = document.getElementById('low-alert-pill');
-      if (avg > 0 && avg < alertThreshold) {
+      if (hasAnyData && avg <= alertThreshold) {
         bar.className = 'h-full rounded-full progress-glow-low transition-all duration-500';
         alertPill.classList.remove('hidden');
-        alertPill.textContent = `< ${alertThreshold}% Alert`;
+        alertPill.textContent = `Cảnh báo < ${alertThreshold}%`;
+      } else if (hasAnyData && avg <= 55) {
+        bar.className = 'h-full rounded-full progress-glow-warn transition-all duration-500';
+        alertPill.classList.add('hidden');
       } else {
         bar.className = 'h-full rounded-full progress-glow-normal transition-all duration-500';
         alertPill.classList.add('hidden');
@@ -633,11 +883,15 @@
       renderAccountMenu();
       renderQuotaLimits(acc);
       renderModelQuotas(acc);
+
+      if (highlightChange) {
+        triggerDataHighlight();
+      }
     }
 
     function renderAccountMenu() {
       const listEl = document.getElementById('account-list');
-      document.getElementById('account-count').textContent = `${accounts.length} accounts`;
+      document.getElementById('account-count').textContent = `${accounts.length} tài khoản`;
       if (accounts.length === 0) {
         listEl.innerHTML = '<div class="px-3 py-3 text-xs text-slate-400">Chưa có tài khoản nào.</div>';
         return;
@@ -645,17 +899,25 @@
       listEl.innerHTML = accounts.map(acc => {
         const isActive = acc.id === activeId;
         const { hasLimits, hasAnyData, gW, cW, avg } = getAccountPercentages(acc);
-        const pctLabel = hasLimits ? `Gemini ${gW}% • Claude ${cW}%` : (hasAnyData ? `Còn ${avg}%` : 'Chưa đồng bộ');
+        const pctLabel = hasLimits
+          ? `Gemini ${formatPct(gW)}% • Claude ${formatPct(cW)}%`
+          : (hasAnyData ? `Còn ${formatPct(avg)}%` : 'Chưa đồng bộ');
+        const barWidth = hasAnyData ? avg.toFixed(2) : '0';
         return `
-          <div class="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
-            <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 min-w-0 text-left">
-              <div class="text-xs font-medium truncate ${isActive ? 'text-cyan-300' : 'text-slate-200'}">${escapeHtml(acc.name)}</div>
-              <div class="text-[10px] text-slate-400 truncate">${escapeHtml(acc.plan)} • ${pctLabel}</div>
-            </button>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <button onclick="openEditModal('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700/60" title="Chỉnh sửa">✎</button>
-              <button onclick="quickDeleteAccount('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-500 hover:text-rose-400 px-1.5 py-0.5 rounded hover:bg-rose-500/15" title="Xóa tài khoản">✕</button>
-              ${isActive ? '<span class="text-cyan-400 text-xs font-bold">✓</span>' : ''}
+          <div class="px-3 py-2.5 hover:bg-slate-800/80 transition ${isActive ? 'bg-indigo-500/10' : ''}">
+            <div class="flex items-center justify-between gap-2">
+              <button onclick="switchAccount('${escapeHtml(acc.id)}')" class="flex-1 min-w-0 text-left">
+                <div class="text-xs font-medium truncate ${isActive ? 'text-cyan-300' : 'text-slate-200'}">${escapeHtml(acc.name)}</div>
+                <div class="text-[10px] text-slate-400 truncate">${escapeHtml(formatPlanLabel(acc.plan))} • ${pctLabel}</div>
+              </button>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="openEditModal('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700/60" title="Chỉnh sửa">✎</button>
+                <button onclick="quickDeleteAccount('${escapeHtml(acc.id)}')" class="text-[11px] text-slate-500 hover:text-rose-400 px-1.5 py-0.5 rounded hover:bg-rose-500/15" title="Xóa tài khoản">✕</button>
+                ${isActive ? '<span class="text-cyan-400 text-xs font-bold">✓</span>' : ''}
+              </div>
+            </div>
+            <div class="mt-1.5 w-full h-1 rounded-full bg-slate-800 overflow-hidden">
+              <div class="h-full rounded-full ${getBarGlowClass(avg, !hasAnyData)}" style="width: ${barWidth}%;"></div>
             </div>
           </div>
         `;
@@ -680,7 +942,7 @@
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 1600);
         try {
-          const res = await fetch(`${base}${pathAndQuery}`, { signal: controller.signal });
+          const res = await fetch(`${base}${pathAndQuery}`, { signal: controller.signal, cache: 'no-store' });
           clearTimeout(timer);
           if (res.ok && (res.headers.get('content-type') || '').includes('application/json')) {
             return { ok: true, base, data: await res.json() };
@@ -699,43 +961,74 @@
       return out;
     }
 
-    async function fetchCloudVaultJson() {
-      // 1) Zero-cache GitHub Contents API from Ubuntu's `quota-data` orphan branch
+    async function fetchCloudVaultJson(forceBypassCache = false) {
+      // 1) GitHub Contents API từ nhánh `quota-data` (sử dụng ETag If-None-Match để 304 tốn 0 rate-limit)
       try {
+        const headers = {};
+        if (!forceBypassCache && vaultHttpCache.etag && vaultHttpCache.rawVault) {
+          headers['If-None-Match'] = vaultHttpCache.etag;
+        }
         const apiRes = await fetch(
           'https://api.github.com/repos/trungpq96dev/token_antigravity/contents/cloud-vault.json?ref=quota-data',
-          { cache: 'no-store' }
+          { cache: 'no-store', headers }
         );
+        if (apiRes.status === 304 && vaultHttpCache.rawVault) {
+          return vaultHttpCache.rawVault;
+        }
         if (apiRes.ok) {
+          const etag = apiRes.headers.get('etag') || '';
           const meta = await apiRes.json();
           if (meta && typeof meta.content === 'string') {
             const rawText = new TextDecoder().decode(base64ToBytes(meta.content.replace(/\s+/g, '')));
             const parsed = JSON.parse(rawText);
             if (parsed && Array.isArray(parsed.vaults) && parsed.vaults.length > 0) {
+              const nextVersion = `${meta.sha || ''}|${parsed.updatedAt || ''}`;
+              if (nextVersion !== vaultHttpCache.versionKey) {
+                vaultHttpCache.unlockedByPassphrase.clear();
+                vaultHttpCache.versionKey = nextVersion;
+              }
+              vaultHttpCache.etag = etag;
+              vaultHttpCache.rawVault = parsed;
               return parsed;
             }
           }
         }
       } catch {
-        // Fallback below if rate-limited or branch not created yet
+        // Chuyển sang phương án dự phòng bên dưới nếu mất mạng hoặc giới hạn API
       }
 
-      // 2) Fallback to static `./cloud-vault.json`
+      // 2) Dự phòng từ tệp tĩnh `./cloud-vault.json`
       try {
         const res = await fetch(`./cloud-vault.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const parsed = await res.json();
+          if (parsed) {
+            const nextVersion = `static|${parsed.updatedAt || ''}`;
+            if (nextVersion !== vaultHttpCache.versionKey) {
+              vaultHttpCache.unlockedByPassphrase.clear();
+              vaultHttpCache.versionKey = nextVersion;
+              vaultHttpCache.rawVault = parsed;
+            }
+            return parsed;
+          }
+        }
       } catch {
-        // Ignore network failure
+        // Bỏ qua lỗi mạng tạm thời
       }
-      return null;
+      return vaultHttpCache.rawVault || null;
     }
 
-    async function unlockFromCloudVault(passphrase) {
+    async function unlockFromCloudVault(passphrase, forceBypassCache = false) {
       const clean = String(passphrase || '').trim().toLowerCase();
       if (!clean || !window.crypto || !window.crypto.subtle) return null;
 
-      const vaultJson = await fetchCloudVaultJson();
+      const vaultJson = await fetchCloudVaultJson(forceBypassCache);
       if (!vaultJson) return null;
+
+      if (vaultHttpCache.unlockedByPassphrase.has(clean)) {
+        const cachedUnlocked = vaultHttpCache.unlockedByPassphrase.get(clean);
+        return cachedUnlocked ? JSON.parse(JSON.stringify(cachedUnlocked)) : null;
+      }
 
       const slots = Array.isArray(vaultJson.vaults) ? vaultJson.vaults : [];
       if (slots.length === 0) return null;
@@ -756,11 +1049,14 @@
             ['decrypt']
           );
           const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, cipherBytes);
-          return JSON.parse(new TextDecoder().decode(plainBuf));
+          const parsed = JSON.parse(new TextDecoder().decode(plainBuf));
+          vaultHttpCache.unlockedByPassphrase.set(clean, parsed);
+          return JSON.parse(JSON.stringify(parsed));
         } catch {
-          // Wrong key for this slot
+          // Thử tiếp slot tiếp theo
         }
       }
+      vaultHttpCache.unlockedByPassphrase.set(clean, null);
       return null;
     }
 
@@ -825,7 +1121,7 @@
       if (provider === 'manual') return null;
 
       if (provider === 'local' || provider === 'cloud-vault' || provider === 'ubuntu-realtime') {
-        // Method B (Realtime): Try direct Cloudflare Tunnel to Ubuntu server first (own or shared server endpoint)
+        // Phương thức B (Thời gian thực): Ưu tiên kết nối trực tiếp Cloudflare Tunnel tới máy chủ Ubuntu
         const ep = (acc.liveEndpoint && acc.liveEndpoint.url && acc.liveEndpoint.token)
           ? acc.liveEndpoint
           : findSharedUbuntuEndpoint();
@@ -841,10 +1137,10 @@
           }
         }
 
-        // Method A (Cloud Vault): Always check encrypted GitHub `quota-data` branch (auto-discovers rotated tunnel URL)
+        // Phương thức A (Cloud Vault): Kiểm tra nhánh `quota-data` trên GitHub (tự nhận URL Tunnel mới nếu máy chủ khởi động lại)
         const candidateKeys = [acc.vaultKey, acc.email, acc.name].filter(Boolean);
         for (const keyCandidate of candidateKeys) {
-          const unlocked = await unlockFromCloudVault(keyCandidate);
+          const unlocked = await unlockFromCloudVault(keyCandidate, manualTrigger);
           if (unlocked) {
             if (
               acc.email &&
@@ -859,18 +1155,16 @@
             const prevUrl = acc.liveEndpoint ? acc.liveEndpoint.url : '';
             if (newEp && newEp.url && newEp.token && newEp.url !== prevUrl) {
               acc.liveEndpoint = newEp;
-              if (manualTrigger) {
-                const retryRealtime = await fetchFromUbuntuTunnel(acc, true);
-                if (retryRealtime) return retryRealtime;
-              }
+              const retryRealtime = await fetchFromUbuntuTunnel(acc, manualTrigger);
+              if (retryRealtime) return retryRealtime;
             }
             return unlocked;
           }
         }
 
-        // Local IDE fallback: ONLY probe localhost when browsing locally (or explicitly forced local) and email matches
+        // Dự phòng Local IDE khi mở trực tiếp trên máy tính cá nhân
         if (isLocalBrowserHost() || provider === 'local') {
-          const bridge = await fetchLocalBridge(`/api/local-antigravity`);
+          const bridge = await fetchLocalBridge('/api/local-antigravity');
           if (bridge.ok && bridge.data && bridge.data.source === 'local-antigravity') {
             const wantEmail = (acc.email || '').trim().toLowerCase();
             const gotEmail = (bridge.data.email || '').trim().toLowerCase();
@@ -884,14 +1178,15 @@
 
       if (provider === 'openrouter' && acc.apiKey) {
         const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
-          headers: { Authorization: `Bearer ${acc.apiKey}` }
+          headers: { Authorization: `Bearer ${acc.apiKey}` },
+          cache: 'no-store'
         });
-        if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`OpenRouter lỗi HTTP ${res.status}`);
         const json = await res.json();
         const data = json.data || {};
         const limitUsd = typeof data.limit === 'number' && data.limit > 0 ? data.limit : 10;
         const usageUsd = typeof data.usage === 'number' ? data.usage : 0;
-        const pct = Math.max(0, Math.min(100, Math.round(((limitUsd - usageUsd) / limitUsd) * 100)));
+        const pct = roundPct2(((limitUsd - usageUsd) / limitUsd) * 100);
         return {
           remaining: pct,
           max: 100,
@@ -906,8 +1201,8 @@
       if (provider === 'custom' && acc.apiEndpoint) {
         const headers = { Accept: 'application/json' };
         if (acc.apiKey) headers.Authorization = `Bearer ${acc.apiKey}`;
-        const res = await fetch(acc.apiEndpoint, { headers });
-        if (!res.ok) throw new Error(`Custom API HTTP ${res.status}`);
+        const res = await fetch(acc.apiEndpoint, { headers, cache: 'no-store' });
+        if (!res.ok) throw new Error(`API tùy chỉnh lỗi HTTP ${res.status}`);
         return await res.json();
       }
 
@@ -932,43 +1227,80 @@
       if (Array.isArray(live.history) && live.history.length > 0) acc.history = live.history;
     }
 
-    async function syncActiveAccount(manualTrigger = false) {
-      const acc = getActiveAccount();
-      if (!acc) {
-        setSyncStatus('Chưa có tài khoản — hãy đăng nhập', false, false);
-        return;
+    async function syncActiveAccount(manualTrigger = false, silentAutoCheck = false) {
+      if (syncInFlight && !manualTrigger) {
+        return syncInFlight;
       }
-      setSyncStatus(
-        manualTrigger && acc.liveEndpoint ? '⚡ Đang gọi Ubuntu realtime...' : 'Syncing...',
-        true,
-        false
-      );
-      try {
-        const live = await fetchRealAccountData(acc, manualTrigger);
-        if (live) {
-          applyLiveDataToAccount(acc, live);
-          persistAccounts();
-          renderDashboard();
-          const timeStr = new Date().toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: live.source === 'ubuntu-realtime' ? '2-digit' : undefined
-          });
-          const label = live.source === 'ubuntu-realtime'
-            ? (live.cached ? '⚡ Realtime Ubuntu (cache)' : '⚡ Realtime Ubuntu')
-            : getProviderLabel(acc.provider, acc);
-          setSyncStatus(`${label} • ${timeStr}`, false, false);
-        } else {
-          if (manualTrigger) await new Promise(r => setTimeout(r, 300));
-          const hasData = Boolean(acc.quotaLimits || Number(acc.max) > 0);
-          if (!hasData) {
-            setSyncStatus('Chưa tìm thấy dữ liệu trên Ubuntu — chạy: sudo ag-tracker update', false, true);
+
+      const run = (async () => {
+        lastAutoSyncAtMs = Date.now();
+        const acc = getActiveAccount();
+        if (!acc) {
+          setSyncStatus('Chưa có tài khoản — hãy đăng nhập', false, false);
+          return;
+        }
+
+        const hadPreviousData = Boolean(acc.quotaLimits || Number(acc.max) > 0);
+        const beforeFp = getAccountDataFingerprint(acc);
+
+        if (!silentAutoCheck || !hadPreviousData) {
+          setSyncStatus(
+            manualTrigger && acc.liveEndpoint
+              ? '⚡ Đang lấy dữ liệu thời gian thực từ Ubuntu...'
+              : 'Đang đồng bộ dữ liệu...',
+            true,
+            false
+          );
+        }
+
+        try {
+          const live = await fetchRealAccountData(acc, manualTrigger);
+          if (live) {
+            applyLiveDataToAccount(acc, live);
+            const afterFp = getAccountDataFingerprint(acc);
+            const hasNewData = beforeFp !== afterFp;
+
+            persistAccounts();
+            renderDashboard(hasNewData && hadPreviousData);
+
+            const timeStr = new Date().toLocaleTimeString('vi-VN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            });
+            const label = live.source === 'ubuntu-realtime'
+              ? (live.cached ? '⚡ Ubuntu Thời gian thực (đệm)' : '⚡ Ubuntu Thời gian thực')
+              : getProviderLabel(acc.provider, acc);
+
+            if (hasNewData && silentAutoCheck && hadPreviousData) {
+              setSyncStatus(`✨ Tự động tải dữ liệu mới (${label}) • ${timeStr}`, false, false);
+              showNewDataToast(`Đã tự động cập nhật dữ liệu mới lúc ${timeStr}`);
+            } else if (silentAutoCheck) {
+              setSyncStatus(`${label} • Kiểm tra tự động ${timeStr}`, false, false);
+            } else {
+              setSyncStatus(`${label} • Cập nhật lúc ${timeStr}`, false, false);
+            }
           } else {
-            setSyncStatus(`Ready (${getProviderLabel(acc.provider, acc)})`, false, false);
+            if (manualTrigger) await new Promise(r => setTimeout(r, 300));
+            const hasData = Boolean(acc.quotaLimits || Number(acc.max) > 0);
+            if (!hasData) {
+              setSyncStatus('Chưa tìm thấy dữ liệu trên Ubuntu — chạy: sudo ag-tracker update', false, true);
+            } else if (!silentAutoCheck) {
+              setSyncStatus(`Sẵn sàng (${getProviderLabel(acc.provider, acc)})`, false, false);
+            }
+          }
+        } catch (err) {
+          if (!silentAutoCheck) {
+            setSyncStatus(`Cảnh báo đồng bộ: ${err.message}`, false, true);
           }
         }
-      } catch (err) {
-        setSyncStatus(`Sync warning: ${err.message}`, false, true);
+      })();
+
+      syncInFlight = run;
+      try {
+        await run;
+      } finally {
+        if (syncInFlight === run) syncInFlight = null;
       }
     }
 
@@ -979,8 +1311,8 @@
     function switchAccount(id) {
       activeId = id;
       document.getElementById('account-menu').classList.add('hidden');
-      renderDashboard();
-      syncActiveAccount(false);
+      renderDashboard(false);
+      syncActiveAccount(false, false);
     }
 
     function inferLoginDetails(rawValue, forcedProvider = 'auto') {
@@ -990,28 +1322,28 @@
       let email = '';
       let apiKey = '';
       let apiEndpoint = '';
-      let hint = 'Nhập email để tự mở khóa dữ liệu % đã đồng bộ trên Cloud Vault hoặc kết nối API Key.';
+      let hint = 'Nhập email để tự mở khóa dữ liệu % đã đồng bộ trên máy chủ Ubuntu / Cloud Vault hoặc kết nối API Key.';
 
       if (provider === 'auto') {
         if (lower.startsWith('sk-or-')) {
           provider = 'openrouter';
           apiKey = val;
           email = 'openrouter@api.key';
-          hint = '✓ Đã nhận diện: OpenRouter API Key.';
+          hint = '✓ Đã nhận diện: Mã khóa OpenRouter API.';
         } else if (val.startsWith('AIza')) {
           provider = 'gemini';
           apiKey = val;
           email = 'gemini@google.ai';
-          hint = '✓ Đã nhận diện: Google Gemini API Key.';
+          hint = '✓ Đã nhận diện: Mã khóa Google Gemini API.';
         } else if (/^https?:\/\//i.test(val)) {
           provider = 'custom';
           apiEndpoint = val;
           email = new URL(val).hostname;
-          hint = '✓ Đã nhận diện: Custom Endpoint URL.';
+          hint = '✓ Đã nhận diện: Đường dẫn API tùy chỉnh.';
         } else if (val.includes('@')) {
           provider = 'cloud-vault';
           email = val;
-          hint = '✓ Đã nhận diện Email — tự động đồng bộ từ Ubuntu Realtime / Cloud Vault.';
+          hint = '✓ Đã nhận diện Email — tự động đồng bộ từ Ubuntu Thời gian thực / Cloud Vault.';
         } else {
           provider = 'cloud-vault';
           email = val || 'local@antigravity.dev';
@@ -1031,7 +1363,7 @@
 
       const defaultName = email.includes('@')
         ? email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-        : 'Antigravity Account';
+        : 'Tài khoản Antigravity';
 
       return { provider, email, apiKey, apiEndpoint, hint, defaultName };
     }
@@ -1069,13 +1401,13 @@
       const btn = document.getElementById('btn-auto-detect');
       btn.disabled = true;
       msgEl.classList.remove('hidden');
-      msgEl.textContent = 'Đang quét phiên đăng nhập Antigravity IDE...';
+      msgEl.textContent = 'Đang quét phiên đăng nhập Antigravity IDE trên máy...';
 
       const bridge = await fetchLocalBridge('/api/local-antigravity');
       btn.disabled = false;
 
       if (!bridge.ok || !bridge.data || bridge.data.source !== 'local-antigravity') {
-        msgEl.textContent = 'Không kết nối được Antigravity IDE trên máy này. Hãy nhập Email ở ô bên dưới để mở khóa Cloud Vault (khi tắt PC), hoặc bật "npm start" trên PC.';
+        msgEl.textContent = 'Không kết nối được Antigravity IDE trên máy này. Hãy nhập Email ở ô bên dưới để mở khóa Cloud Vault (khi tắt PC), hoặc chạy lệnh "npm start" trên PC.';
         return;
       }
 
@@ -1106,9 +1438,9 @@
       activeId = acc.id;
       persistAccounts();
       closeAddModal();
-      renderDashboard();
+      renderDashboard(true);
       const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      setSyncStatus(`Auto-detected (${acc.email}) • ${timeStr}`, false, false);
+      setSyncStatus(`Đã tự nhận diện (${acc.email}) • ${timeStr}`, false, false);
     }
 
     function openAddModal() {
@@ -1181,7 +1513,7 @@
           );
         }
         if (!vaultData) {
-          vaultData = await unlockFromCloudVault(rawLogin);
+          vaultData = await unlockFromCloudVault(rawLogin, true);
         }
       }
 
@@ -1236,13 +1568,13 @@
 
       persistAccounts();
       closeAddModal();
-      renderDashboard();
+      renderDashboard(true);
       if (vaultData) {
         const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        const modeTag = vaultData.liveEndpoint ? '⚡ Realtime Ubuntu' : 'Cloud Sync';
+        const modeTag = vaultData.liveEndpoint ? '⚡ Ubuntu Thời gian thực' : 'Đồng bộ Cloud';
         setSyncStatus(`${modeTag} (${email}) • ${timeStr}`, false, false);
       } else {
-        syncActiveAccount(false);
+        syncActiveAccount(false, false);
       }
     }
 
@@ -1250,7 +1582,7 @@
       accounts = accounts.filter(a => a.id !== id);
       if (activeId === id) activeId = accounts[0] ? accounts[0].id : '';
       persistAccounts();
-      renderDashboard();
+      renderDashboard(false);
     }
 
     function deleteEditingAccount() {
@@ -1260,7 +1592,7 @@
       if (activeId === editId) activeId = accounts[0] ? accounts[0].id : '';
       persistAccounts();
       closeAddModal();
-      renderDashboard();
+      renderDashboard(false);
     }
 
     function openPctModal() {
@@ -1270,10 +1602,10 @@
         return;
       }
       const { gW, g5, cW, c5 } = getAccountPercentages(acc);
-      document.getElementById('inp-gem-w').value = Math.round(gW);
-      document.getElementById('inp-gem-5h').value = Math.round(g5);
-      document.getElementById('inp-cla-w').value = Math.round(cW);
-      document.getElementById('inp-cla-5h').value = Math.round(c5);
+      document.getElementById('inp-gem-w').value = roundPct2(gW);
+      document.getElementById('inp-gem-5h').value = roundPct2(g5);
+      document.getElementById('inp-cla-w').value = roundPct2(cW);
+      document.getElementById('inp-cla-5h').value = roundPct2(c5);
       document.getElementById('pct-modal').classList.remove('hidden');
     }
 
@@ -1285,12 +1617,11 @@
       e.preventDefault();
       const acc = getActiveAccount();
       if (!acc) return;
-      const clamp = v => Math.max(0, Math.min(100, Number(v) || 0));
       const prev = acc.quotaLimits || { gemini: { weekly: {}, fiveHour: {} }, claudeGpt: { weekly: {}, fiveHour: {} } };
-      const gW = clamp(document.getElementById('inp-gem-w').value);
-      const g5 = clamp(document.getElementById('inp-gem-5h').value);
-      const cW = clamp(document.getElementById('inp-cla-w').value);
-      const c5 = clamp(document.getElementById('inp-cla-5h').value);
+      const gW = roundPct2(document.getElementById('inp-gem-w').value);
+      const g5 = roundPct2(document.getElementById('inp-gem-5h').value);
+      const cW = roundPct2(document.getElementById('inp-cla-w').value);
+      const c5 = roundPct2(document.getElementById('inp-cla-5h').value);
       acc.quotaLimits = {
         gemini: {
           weekly: { pct: gW, resetAt: prev.gemini?.weekly?.resetAt || null },
@@ -1303,9 +1634,9 @@
       };
       persistAccounts();
       closePctModal();
-      renderDashboard();
+      renderDashboard(true);
 
-      // Sync calibrated % baseline to local server if running
+      // Đồng bộ mốc % chuẩn về máy chủ cục bộ nếu đang chạy
       for (const base of LOCAL_BRIDGE_BASES) {
         if (base && location.origin === base) continue;
         try {
@@ -1316,7 +1647,7 @@
           });
           if (res.ok) break;
         } catch {
-          // Ignore if offline / remote
+          // Bỏ qua nếu đang xem từ xa
         }
       }
     }
@@ -1324,6 +1655,8 @@
     function openAlertModal() {
       document.getElementById('inp-alert-threshold').value = alertThreshold;
       document.getElementById('alert-threshold-label').textContent = `${alertThreshold}%`;
+      document.getElementById('inp-auto-refresh').checked = autoRefreshEnabled;
+      document.getElementById('inp-refresh-interval').value = String(autoRefreshIntervalSec);
       document.getElementById('alert-modal').classList.remove('hidden');
     }
 
@@ -1334,9 +1667,13 @@
     function saveAlertSettings(e) {
       e.preventDefault();
       alertThreshold = Number(document.getElementById('inp-alert-threshold').value || 20);
+      autoRefreshEnabled = Boolean(document.getElementById('inp-auto-refresh').checked);
+      autoRefreshIntervalSec = Math.max(10, Number(document.getElementById('inp-refresh-interval').value || 15));
       localStorage.setItem(STORAGE_THRESHOLD_KEY, String(alertThreshold));
+      localStorage.setItem(STORAGE_AUTO_REFRESH_KEY, autoRefreshEnabled ? '1' : '0');
+      localStorage.setItem(STORAGE_REFRESH_INTERVAL_KEY, String(autoRefreshIntervalSec));
       closeAlertModal();
-      renderDashboard();
+      renderDashboard(false);
     }
 
     function openHistoryModal() {
@@ -1352,11 +1689,12 @@
           const isPositive = Number(item.delta) >= 0;
           const deltaText = `${isPositive ? '+' : ''}${formatNum(item.delta)}`;
           const dateText = new Date(item.timestamp).toLocaleString('vi-VN');
+          const localized = translateHistoryItem(item);
           return `
             <div class="py-2.5 flex items-center justify-between gap-3">
               <div>
-                <div class="text-slate-200 font-medium">${escapeHtml(item.title)}</div>
-                <div class="text-[11px] text-slate-400">${escapeHtml(item.taskType)} • ${escapeHtml(item.source || 'IDE')} • ${escapeHtml(dateText)}</div>
+                <div class="text-slate-200 font-medium">${escapeHtml(localized.title)}</div>
+                <div class="text-[11px] text-slate-400">${escapeHtml(localized.taskType)} • ${escapeHtml(localized.source)} • ${escapeHtml(dateText)}</div>
               </div>
               <span class="font-mono font-semibold ${isPositive ? 'text-emerald-400' : 'text-cyan-300'}">${deltaText}</span>
             </div>
@@ -1386,7 +1724,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `antigravity-quota-${acc.id}.json`;
+      a.download = `antigravity-han-muc-${acc.id}.json`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -1398,9 +1736,32 @@
       }
     });
 
+    // Đồng bộ tức thời giữa nhiều tab trình duyệt đang mở
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_ACCOUNTS_KEY || e.key === STORAGE_ACTIVE_KEY) {
+        accounts = loadStoredAccounts();
+        activeId = localStorage.getItem(STORAGE_ACTIVE_KEY) || (accounts[0] ? accounts[0].id : '');
+        renderDashboard(true);
+      } else if (e.key === STORAGE_AUTO_REFRESH_KEY) {
+        autoRefreshEnabled = localStorage.getItem(STORAGE_AUTO_REFRESH_KEY) !== '0';
+        updateAutoRefreshButtonUI();
+      }
+    });
+
+    // Tự động kiểm tra ngay khi người dùng quay lại tab hoặc có kết nối mạng trở lại
+    function checkImmediatelyIfDue() {
+      if (!autoRefreshEnabled || document.hidden) return;
+      if (Date.now() - lastAutoSyncAtMs >= 5000) {
+        syncActiveAccount(false, true);
+      }
+    }
+    document.addEventListener('visibilitychange', checkImmediatelyIfDue);
+    window.addEventListener('focus', checkImmediatelyIfDue);
+    window.addEventListener('online', checkImmediatelyIfDue);
+
     async function autoConnectLocalIdeOnBoot() {
       if (accounts.length > 0) {
-        await syncActiveAccount(false);
+        await syncActiveAccount(false, false);
         return;
       }
       const bridge = await fetchLocalBridge('/api/local-antigravity');
@@ -1424,21 +1785,36 @@
         accounts.unshift(localAcc);
         activeId = localAcc.id;
         persistAccounts();
-        renderDashboard();
+        renderDashboard(true);
         const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        setSyncStatus(`Synced (${localAcc.email}) • ${timeStr}`, false, false);
+        setSyncStatus(`Đã đồng bộ (${localAcc.email}) • ${timeStr}`, false, false);
         return;
       }
       setSyncStatus('Chưa đăng nhập — hãy thêm tài khoản', false, false);
       openAddModal();
     }
 
-    renderDashboard();
+    renderDashboard(false);
     autoConnectLocalIdeOnBoot();
+
+    // Bộ lập lịch kiểm tra dữ liệu mới tự động & cập nhật bộ đếm ngược
+    let lastMinuteRendered = Math.floor(Date.now() / 60000);
     setInterval(() => {
+      if (document.hidden) return;
       const acc = getActiveAccount();
-      if (acc) renderDashboard();
-    }, 60000);
+      if (!acc) return;
+
+      if (autoRefreshEnabled && Date.now() - lastAutoSyncAtMs >= autoRefreshIntervalSec * 1000) {
+        syncActiveAccount(false, true);
+        return;
+      }
+
+      const nowMin = Math.floor(Date.now() / 60000);
+      if (nowMin !== lastMinuteRendered) {
+        lastMinuteRendered = nowMin;
+        renderDashboard(false);
+      }
+    }, 3000);
   </script>
 </body>
 </html>

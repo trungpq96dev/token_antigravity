@@ -59,7 +59,7 @@ function getLast7DayKeysAndLabels() {
     d.setDate(d.getDate() - offset);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     keys.push(key);
-    labels.push(offset === 0 ? 'Today' : vnDays[d.getDay()]);
+    labels.push(offset === 0 ? 'Hôm nay' : vnDays[d.getDay()]);
   }
   return { keys, labels };
 }
@@ -173,7 +173,7 @@ function readAntigravityIdeAuthStatus() {
           if (zIdx !== -1 && slice[zIdx + 2] === 0x0d) {
             const frac = slice.readFloatLE(zIdx + 3);
             if (Number.isFinite(frac) && frac >= 0 && frac <= 1) {
-              models.push({ name: m[1], remainingPct: Math.round(frac * 1000) / 10 });
+              models.push({ name: m[1], remainingPct: Math.round(frac * 10000) / 100 });
             }
           }
         }
@@ -315,14 +315,14 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const resetDays = Math.max(1, Math.ceil((endOfMonth - now) / (24 * 60 * 60 * 1000)));
 
-  const taskCycle = ['Agent & Reasoning', 'Code Autocomplete', 'Quick Chat'];
+  const taskCycle = ['Tác nhân & Suy luận', 'Gợi ý mã nguồn', 'Trò chuyện nhanh'];
   const history = sessions.slice(0, 12).map((s, idx) => ({
     id: `tx-${s.shortId}`,
-    title: `Session #${s.shortId}`,
+    title: `Phiên #${s.shortId}`,
     taskType: taskCycle[idx % taskCycle.length],
     delta: -s.tokens,
     timestamp: s.timestamp,
-    source: 'Local Telemetry',
+    source: 'Đo lường trên máy',
   }));
 
   const nowMs = Date.now();
@@ -335,15 +335,15 @@ function collectLocalAntigravityTelemetry(maxTokens = DEFAULT_MAX_TOKENS) {
     }
     const basePct = Number(item.pct) || 0;
     return {
-      pct: Math.max(0, Math.min(100, Math.round(basePct - deltaPct))),
+      pct: Math.max(0, Math.min(100, Math.round((basePct - deltaPct) * 100) / 100)),
       resetAt: item.resetAt || null,
     };
   };
 
   const quotaLimits = {
     gemini: {
-      weekly: resolveQuotaItem(baseline.gemini.weekly, Math.floor(deltaBytes / 125000)),
-      fiveHour: resolveQuotaItem(baseline.gemini.fiveHour, Math.floor(deltaBytes / 14000)),
+      weekly: resolveQuotaItem(baseline.gemini.weekly, deltaBytes / 125000),
+      fiveHour: resolveQuotaItem(baseline.gemini.fiveHour, deltaBytes / 14000),
     },
     claudeGpt: {
       weekly: resolveQuotaItem(baseline.claudeGpt.weekly, 0),
@@ -540,7 +540,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const current = collectLocalAntigravityTelemetry();
       const prev = loadOrInitQuotaBaseline(current.totalTranscriptBytes || 0);
-      const clamp = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+      const clamp = v => Math.max(0, Math.min(100, Math.round((Number(v) || 0) * 100) / 100));
       const updated = {
         gemini: {
           weekly: { pct: clamp(body.geminiWeekly ?? prev.gemini.weekly.pct), resetAt: body.geminiWeeklyResetAt ?? prev.gemini.weekly.resetAt },
